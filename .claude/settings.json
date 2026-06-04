@@ -1,0 +1,104 @@
+{
+    "$schema": "https://json.schemastore.org/claude-code-settings.json",
+    "permissions": {
+        "defaultMode": "plan",
+        "allow": [
+            "Read",
+            "Glob",
+            "Grep",
+            "LSP",
+            "WebSearch",
+            "WebFetch(domain:docs.nvidia.com)",
+            "WebFetch(domain:developer.nvidia.com)",
+            "WebFetch(domain:en.cppreference.com)",
+            "WebFetch(domain:docs.python.org)",
+            "WebFetch(domain:pybind11.readthedocs.io)",
+            "Bash(git status*)",
+            "Bash(git diff*)",
+            "Bash(git log*)",
+            "Bash(cmake --build build*)",
+            "Bash(ctest*)",
+            "Bash(./build/*)",
+            "Bash(python -m pytest*)",
+            "Edit(./docs/**)",
+            "Write(./docs/**)"
+        ],
+        "ask": [
+            "Bash(cmake *)",
+            "Bash(ninja *)",
+            "Bash(make *)",
+            "Bash(python *)"
+        ],
+        "deny": [
+            "Edit(./src/**)",
+            "Write(./src/**)",
+            "Edit(./include/**)",
+            "Write(./include/**)",
+            "Edit(./cuda/**)",
+            "Write(./cuda/**)",
+            "Edit(./tests/**)",
+            "Write(./tests/**)",
+            "Edit(./python/**)",
+            "Write(./python/**)",
+            "NotebookEdit",
+            "Bash(git commit*)",
+            "Bash(git push*)",
+            "Bash(git reset*)",
+            "Bash(git clean*)",
+            "Bash(rm *)",
+            "Bash(rm -rf*)",
+            "Bash(sed -i*)",
+            "Bash(perl -pi*)",
+            "Bash(curl *)",
+            "Bash(wget *)",
+            "Read(./.env)",
+            "Read(./.env.*)",
+            "Read(./secrets/**)",
+            "Read(./build/**)"
+        ]
+    },
+    "sandbox": {
+        "enabled": true,
+        "autoAllowBashIfSandboxed": false,
+        "filesystem": {
+            "allowWrite": [
+                "./build",
+                "./docs"
+            ],
+            "denyRead": [
+                "./secrets",
+                "./.env"
+            ],
+            "denyWrite": [
+                "./src",
+                "./include",
+                "./cuda",
+                "./tests",
+                "./python"
+            ]
+        },
+        "network": {
+            "allowedDomains": [
+                "docs.nvidia.com",
+                "developer.nvidia.com",
+                "en.cppreference.com",
+                "docs.python.org",
+                "pybind11.readthedocs.io"
+            ]
+        }
+    },
+    "hooks": {
+        "PreToolUse": [
+            {
+                "matcher": "Edit|Write|NotebookEdit|Bash",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/block_source_writes.sh",
+                        "args": []
+                    }
+                ]
+            }
+        ]
+    }
+}
