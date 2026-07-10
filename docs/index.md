@@ -11,6 +11,7 @@ Read these files first:
 - `docs/math/dual_potentials.md`
 - `docs/math/numerical_stability.md`
 - `docs/math/cost_functions.md`
+- `docs/engineering/api.md`
 - `docs/engineering/cuda_cpp_architecture.md`
 - `docs/engineering/memory_layout.md`
 - `docs/engineering/test_strategy.md`

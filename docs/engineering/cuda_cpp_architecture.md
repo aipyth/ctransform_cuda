@@ -1,126 +1,62 @@
 # CUDA C++ architecture
 
-## Module layout
+## Repository layout
 
 ```
 ctransform_cuda/
-├── src/
-│   ├── ctransform_naive.cu       # 1D c-transform: kernel, DeviceBuffer, Grid, host driver
-│   ├── ctransform2d_naive.cu     # 2D c-transform: kernel, DeviceBuffer, Grid2D, host driver
-│   ├── vector_add.cu             # Vestigial demo (not part of the math project)
-│   └── main.cpp                  # Vestigial demo driver (not part of the math project)
 ├── include/
-│   └── vector_add.hpp            # Empty placeholder (not used)
+│   ├── ctransform.hpp      # public API: Grid structs, host wrapper declarations
+│   ├── cuda_utils.cuh      # DeviceBuffer<T> RAII wrapper, CUDA_CHECK macro
+│   └── print_utils.hpp     # debug print helpers (demo use only)
+├── src/
+│   ├── ctransform_naive.cu       # 1D kernel + host wrapper
+│   ├── ctransform2d_naive.cu     # 2D kernel + host wrapper
+│   ├── cpu_reference.cpp         # serial CPU reference implementations
+│   └── ctransform_naive_demo.cpp # minimal usage example
 └── tests/
-    └── (empty)
+    ├── test_ctransform_1d.cpp    # 1D CUDA correctness (closed-form cases)
+    ├── test_cpu_reference.cpp    # CPU reference correctness (closed-form cases)
+    ├── test_cuda_vs_cpu.cpp      # GPU vs CPU agreement (1D and 2D)
+    └── test_perf.cpp             # timing benchmark (separate binary, not CTest)
 ```
-
-The two mathematical source files are currently self-contained: each includes its own `DeviceBuffer` class, grid struct, host driver, and kernel. There is no shared header for common utilities.
-
----
-
-## Shared data structures (currently duplicated)
-
-Both c-transform files define:
-
-**`DeviceBuffer<T>`** — RAII wrapper for GPU memory:
-```cpp
-template <typename T>
-class DeviceBuffer {
-    T* ptr_;
-    std::size_t count_;
-public:
-    DeviceBuffer(std::size_t count);   // cudaMalloc
-    ~DeviceBuffer();                   // cudaFree
-    T* get();                          // raw pointer for kernel args
-    std::size_t count() const;
-};
-```
-
-**`Grid`** (1D):
-```cpp
-struct Grid {
-    std::size_t nx;   // number of source points
-    std::size_t ny;   // number of target points
-};
-```
-
-**`Grid2D`** (2D):
-```cpp
-struct Grid2D {
-    std::size_t nx0, nx1;   // source axes sizes
-    std::size_t ny0, ny1;   // target axes sizes
-};
-```
-
-These should eventually be extracted to a shared header in `include/`.
 
 ---
 
 ## Host/device API boundary
 
-The host side is responsible for:
+The host wrappers in `ctransform_naive.cu` and `ctransform2d_naive.cu` follow a fixed pattern:
 
-1. Allocating `DeviceBuffer` objects (triggers `cudaMalloc`)
-2. Copying input arrays host → device (`cudaMemcpy H2D`)
-3. Computing kernel launch parameters (grid/block dimensions)
-4. Launching the kernel
-5. Calling `cudaDeviceSynchronize` and checking the error code
-6. Copying output array device → host (`cudaMemcpy D2H`)
-7. `DeviceBuffer` destructors free GPU memory on scope exit
+1. Allocate `DeviceBuffer<T>` objects for each array (triggers `cudaMalloc`)
+2. Copy inputs host → device (`cudaMemcpy H2D`)
+3. Compute launch parameters
+4. Launch the kernel
+5. Check `cudaGetLastError` and `cudaDeviceSynchronize`
+6. Copy output device → host (`cudaMemcpy D2H`)
+7. `DeviceBuffer` destructors free GPU memory on scope exit (RAII)
 
-The device kernel receives only:
-- Raw `const T* __restrict__` pointers to input arrays
-- Raw `T*` pointer to output array
-- Integer size parameters (nx, ny or nx0, nx1, ny0, ny1)
-
-No host-side allocations, no C++ exceptions, and no virtual dispatch occur in device code.
+The device kernel receives only raw `const T* __restrict__` input pointers, a raw `T*` output pointer, and a Grid struct. No host-side types, no exceptions, and no virtual dispatch enter device code.
 
 ---
 
-## Kernel: `quadraticCTransform1D<T>`
-
-```
-__global__ void quadraticCTransform1D(
-    const T* __restrict__ X,     // source coordinates [nx]
-    const T* __restrict__ Y,     // target coordinates [ny]
-    const T* __restrict__ Phi,   // source potential  [nx]
-    T* out,                      // output potential  [ny]
-    std::size_t nx,
-    std::size_t ny
-)
-```
+## 1D kernel: `quadraticCTransform1DKernel<T>`
 
 Launch configuration:
 ```
 threads_per_block = 256
-blocks = (ny + 255) / 256
+blocks = ceil(ny / 256)
 ```
 
-Each thread owns one output index `iy = blockIdx.x * 256 + threadIdx.x`. If `iy >= ny` the thread exits immediately (boundary guard). The thread then scans all `ix ∈ [0, nx)` sequentially.
+Each thread owns one output index `iy`. The thread loads `Y[iy]` into a register once, then scans all source indices `ix ∈ [0, nx)` sequentially, maintaining a running minimum.
 
 ---
 
-## Kernel: `quadraticCTransform2D<T>`
-
-```
-__global__ void quadraticCTransform2D(
-    const T* __restrict__ Xaxis0,   // source axis 0  [nx0]
-    const T* __restrict__ Xaxis1,   // source axis 1  [nx1]
-    const T* __restrict__ Yaxis0,   // target axis 0  [ny0]
-    const T* __restrict__ Yaxis1,   // target axis 1  [ny1]
-    const T* __restrict__ Phi,      // source potential [nx0*nx1], row-major
-    T* out,                         // output potential [ny0*ny1], row-major
-    std::size_t nx0, std::size_t nx1,
-    std::size_t ny0, std::size_t ny1
-)
-```
+## 2D kernel: `quadraticCTransform2DKernel<T>`
 
 Launch configuration:
 ```
 blockDim  = { 16, 16, 1 }
-gridDim.x = (ny1 + 15) / 16    // fast axis (axis 1)
-gridDim.y = (ny0 + 15) / 16    // slow axis (axis 0)
+gridDim.x = ceil(ny1 / 16)   // fast axis (axis 1, contiguous in memory)
+gridDim.y = ceil(ny0 / 16)   // slow axis (axis 0)
 ```
 
 Thread index mapping:
@@ -129,95 +65,63 @@ iy1 = blockIdx.x * 16 + threadIdx.x   // fast axis
 iy0 = blockIdx.y * 16 + threadIdx.y   // slow axis
 ```
 
-Threads outside the domain (iy0 >= ny0 or iy1 >= ny1) exit immediately.
+Each thread loads `Yaxis0[iy0]` and `Yaxis1[iy1]` into registers, then iterates over all `(ix0, ix1)` pairs. The outer loop precomputes `d0 = Xaxis0[ix0] - yi0` before entering the inner `ix1` loop.
 
----
-
-## Memory strategy
-
-| Component | Strategy | Rationale |
-|---|---|---|
-| Y coordinate | Loaded into register once per thread | Reused across all nx iterations |
-| X, Phi | Read from global memory in inner loop | Sequential streaming access |
-| Output | Written once per thread | Coalesced across warp (iy1 is fast axis) |
-| Shared memory | Not used | Correctness baseline; tiling is future work |
-
-Register caching of `yi` (and `yi0`, `yi1` in 2D) avoids re-reading per iteration and is the main performance optimization in the current implementation.
+The `iy1` index is the fast-varying axis, so the output write `out[iy0*ny1 + iy1]` is coalesced across a warp.
 
 ---
 
 ## Reduction strategy
 
-The minimum over the source domain is computed by a **sequential per-thread scan**:
+Both kernels use a **sequential per-thread scan**:
 
 ```cpp
-T result = INFINITY;
-for (std::size_t ix = 0; ix < nx; ++ix) {
-    result = fmin(result, cost - phi);
+T best = INFINITY;
+for (...) {
+    best = min(best, candidate);
 }
+out[iy] = best;
 ```
 
-This is:
-- **Correct**: produces the exact minimum within floating-point arithmetic
-- **Deterministic**: no race conditions, no atomics, no parallel reduction
-- **Simple**: one thread per output point; no inter-thread communication
-- **Not optimal for large N**: for N >> 1, this thread serial loop is the bottleneck; warp-level or shared-memory parallel reduction would improve occupancy utilization
+Properties:
+- **Correct**: exact minimum within floating-point arithmetic
+- **Deterministic**: no atomics, no parallel reduction, no race conditions
+- **Simple**: no inter-thread communication
+- **Not optimal for large N**: thread-serial inner loop is the bottleneck for large source grids; shared-memory tiling or warp-level reduction would improve throughput
+
+`min()` is used instead of `fmin()` in device code: in C++20 `std::fmin` is declared `constexpr __host__` and cannot be called from `__global__` functions. The CUDA `min()` intrinsic maps to the same hardware instruction and has identical behavior for finite and ±∞ inputs.
+
+---
+
+## Template instantiations
+
+The host wrappers are function templates. Their definitions live in `.cu` files (compiled by nvcc), which g++-compiled test files cannot see. Each `.cu` file therefore provides explicit instantiations at the bottom:
+
+```cpp
+template void quadraticCTransform<float>(...);
+template void quadraticCTransform<double>(...);
+```
+
+This forces nvcc to emit the compiled symbols so the linker can resolve calls from `.cpp` test files.
 
 ---
 
 ## Error handling
 
-Both files use a `cudaCheck` macro (defined locally):
+`CUDA_CHECK` is defined in `include/cuda_utils.cuh` and wraps every CUDA call:
 
 ```cpp
-#define cudaCheck(err, file, line) \
-    if (err != cudaSuccess) { \
-        fprintf(stderr, "CUDA error %s:%d: %s\n", file, line, cudaGetErrorString(err)); \
-        exit(1); \
-    }
+#define CUDA_CHECK(x) do { cudaError_t e = (x); \
+    if (e != cudaSuccess) fprintf(stderr, "%s:%d %s\n", \
+        __FILE__, __LINE__, cudaGetErrorString(e)); } while(0)
 ```
 
-All `cudaMalloc`, `cudaMemcpy`, `cudaDeviceSynchronize`, and kernel launch errors are checked. On failure the process exits with code 1. There is no exception-based error path.
-
-Known issue: the macro is duplicated across both files. It should be moved to a shared header.
+Errors are reported to stderr. The macro does not abort; the caller sees a zero-initialised or garbage output if a prior CUDA call failed silently, so checking all return codes is essential.
 
 ---
 
 ## Build system
 
-**Current state**: `CMakeLists.txt` defines only the `vector_add` demo target:
+CMake 3.26+, C++20 and CUDA 20 standards, `CUDA_ARCHITECTURES native`.
 
-```cmake
-add_library(my_cuda_lib STATIC src/vector_add.cu)
-add_executable(vector_add_test src/main.cpp)
-target_link_libraries(vector_add_test PRIVATE my_cuda_lib)
-```
-
-The c-transform executables were compiled manually and are committed to the project root as pre-built binaries (`ctransform_naive`, `ctransform2d`). They are **not CMake targets**.
-
-**To fix**: add the following to `CMakeLists.txt`:
-
-```cmake
-add_executable(ctransform_naive src/ctransform_naive.cu)
-set_target_properties(ctransform_naive PROPERTIES
-    CUDA_STANDARD 17 CUDA_ARCHITECTURES Native)
-
-add_executable(ctransform2d src/ctransform2d_naive.cu)
-set_target_properties(ctransform2d PROPERTIES
-    CUDA_STANDARD 17 CUDA_ARCHITECTURES Native)
-```
-
-CUDA architecture setting: `CMAKE_CUDA_ARCHITECTURES = Native` (targets the GPU present at build time).
-
----
-
-## Test executable layout
-
-The current executables (`ctransform_naive`, `ctransform2d`) are **self-testing demo drivers**:
-
-- Hardcoded small inputs at the bottom of each `.cu` file
-- Run the kernel, copy results back, print to stdout
-- No automated pass/fail assertions
-- Verification is by visual inspection
-
-The intended evolution is to separate driver code into `tests/` with proper assert-based test cases. See `docs/engineering/test_strategy.md`.
+GoogleTest (v1.14.0) is fetched via `FetchContent` at configure time. Per-developer CUDA compiler paths are set in `CMakeUserPresets.json` (gitignored) inheriting from the shared `CMakePresets.json`.
