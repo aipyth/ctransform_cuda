@@ -1,38 +1,14 @@
-#include <iostream>
-#include <vector>
 #include <cuda_runtime.h>
 
-#define CUDA_CHECK(x) do { cudaError_t e = (x); \
-    if (e != cudaSuccess) fprintf(stderr, "%s:%d %s\n",\
-            __FILE__, __LINE__, cudaGetErrorString(e)); } while(0)
+#include <iostream>
+#include <vector>
+
+#include "print_utils.hpp"
+#include "cuda_utils.cuh"
+
+#include "ctransform.hpp"
 
 
-struct Grid {
-    std::size_t nx;
-    std::size_t ny;
-};
-
-class DeviceBuffer {
-public:
-    explicit DeviceBuffer(std::size_t count)
-        : count_ (count)
-    {
-        CUDA_CHECK(cudaMalloc(&ptr_, count_ * sizeof(double)));
-    }
-
-    DeviceBuffer(const DeviceBuffer&) = delete;
-    DeviceBuffer& operator=(const DeviceBuffer&) = delete;
-
-    ~DeviceBuffer() {
-        if (ptr_) cudaFree(ptr_);
-    }
-
-    double* get() const { return ptr_; }
-
-private:
-    double* ptr_ = nullptr;
-    std::size_t count_ = 0;
-};
 
 // === Naive 1D kernel - c-tranform ===
 // the Kantorovich dual admits the following c-tranform
@@ -45,12 +21,12 @@ private:
 //      phi^c _{iy} = min_{ix} 1/2 (x_{ix} - y_{iy})^2 - phi_{ix}
 
 template <typename T>
-__global__ void quadraticCTransform1D (
+__global__ void quadraticCTransform1DKernel (
         const T* __restrict__ X,     // target coords
         const T* __restrict__ Y,     // source coords
         const T* __restrict__ Phi,   // source values
         T* out,
-        const Grid grid
+        const Grid1D grid
         ) {
     int iy = threadIdx.x + blockDim.x * blockIdx.x;
     if (iy >= grid.ny) return;
@@ -69,56 +45,36 @@ __global__ void quadraticCTransform1D (
     out[iy] = best;
 }
 
-
 template <typename T>
-void printVector(std::string s, const std::vector<T>& vec) {
-    std::cout << s << ": ";
-    for (T x : vec) std::cout << x << " ";
-    std::cout << std::endl;
-}
+void quadraticCTransform(
+    const T* X,
+    const T* Y,
+    const T* phi,
+    T* out,
+    Grid1D grid
+) {
+    DeviceBuffer<T> devX(grid.nx);
+    DeviceBuffer<T> devY(grid.ny);
+    DeviceBuffer<T> devPhi(grid.nx);
+    DeviceBuffer<T> devOut(grid.ny);
 
-int main (void) {
+    CUDA_CHECK(cudaMemcpy(devX.get(), X, grid.nx * sizeof(T), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(devY.get(), Y, grid.ny * sizeof(T), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(devPhi.get(), phi, grid.nx * sizeof(T), cudaMemcpyHostToDevice));
 
-
-    std::vector<double> hostX = { -0.5, 0.0, 0.5 };
-    std::vector<double> hostY = { -0.2, 0.0, 0.2, 0.5 };
-
-    std::size_t nx = hostX.size();
-    std::size_t ny = hostY.size();
-    Grid grid { nx, ny };
-
-    std::size_t sizeX = grid.nx * sizeof(hostX[0]);
-    std::size_t sizeY = grid.ny * sizeof(hostY[0]);
-
-
-    std::vector<double> hostPhi = { 0.2, 0., 0.3 };
-
-    printVector("x   grid", hostX);
-    printVector("y   grid", hostY);
-    printVector("Phi grid", hostPhi);
-
-    DeviceBuffer devX(grid.nx);
-    DeviceBuffer devY(grid.ny);
-    DeviceBuffer devPhi(grid.nx);
-    DeviceBuffer devPsi(grid.ny);
-
-    CUDA_CHECK(cudaMemcpy(devX.get(), hostX.data(), sizeX, cudaMemcpyHostToDevice));
-    CUDA_CHECK(cudaMemcpy(devY.get(), hostY.data(), sizeY, cudaMemcpyHostToDevice));
-    CUDA_CHECK(cudaMemcpy(devPhi.get(), hostPhi.data(), sizeX, cudaMemcpyHostToDevice));
-
+    // call the kernel
     int threads = 256;
-    int blocks = (grid.ny + threads - 1) / threads;
-
-    quadraticCTransform1D<<<blocks, threads>>> (devX.get(), devY.get(), devPhi.get(), devPsi.get(), grid);
-
+    int blocks = (static_cast<int>(grid.ny) + threads - 1) / threads;
+    quadraticCTransform1DKernel<T><<<blocks, threads>>>(
+        devX.get(), devY.get(), devPhi.get(), devOut.get(), grid
+        );
+    
+    // check for errors and copy the result
     CUDA_CHECK(cudaGetLastError());
     CUDA_CHECK(cudaDeviceSynchronize());
 
-    std::vector<double> hostPsi(grid.ny);
-
-    CUDA_CHECK(cudaMemcpy(hostPsi.data(), devPsi.get(), sizeY, cudaMemcpyDeviceToHost));
-
-    printVector("psi", hostPsi);
-
-    return 0;
+    CUDA_CHECK(cudaMemcpy(out, devOut.get(), grid.ny * sizeof(T), cudaMemcpyDeviceToHost));
 }
+
+template void quadraticCTransform(const float*, const float*, const float*, float*, Grid1D);
+template void quadraticCTransform(const double*, const double*, const double*, double*, Grid1D);
