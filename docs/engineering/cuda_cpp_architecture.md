@@ -22,22 +22,6 @@ ctransform_cuda/
 
 ---
 
-## Host/device API boundary
-
-The host wrappers in `ctransform_naive.cu` and `ctransform2d_naive.cu` follow a fixed pattern:
-
-1. Allocate `DeviceBuffer<T>` objects for each array (triggers `cudaMalloc`)
-2. Copy inputs host → device (`cudaMemcpy H2D`)
-3. Compute launch parameters
-4. Launch the kernel
-5. Check `cudaGetLastError` and `cudaDeviceSynchronize`
-6. Copy output device → host (`cudaMemcpy D2H`)
-7. `DeviceBuffer` destructors free GPU memory on scope exit (RAII)
-
-The device kernel receives only raw `const T* __restrict__` input pointers, a raw `T*` output pointer, and a Grid struct. No host-side types, no exceptions, and no virtual dispatch enter device code.
-
----
-
 ## 1D kernel: `quadraticCTransform1DKernel<T>`
 
 Launch configuration:
@@ -108,7 +92,7 @@ This forces nvcc to emit the compiled symbols so the linker can resolve calls fr
 
 ## Error handling
 
-`CUDA_CHECK` is defined in `include/cuda_utils.cuh` and wraps every CUDA call:
+`CUDA_CHECK` is defined in [`include/cuda_utils.cuh`](../../include/cuda_utils.cuh) and wraps every CUDA call:
 
 ```cpp
 #define CUDA_CHECK(x) do { cudaError_t e = (x); \
