@@ -1,6 +1,6 @@
 # Public API
 
-All declarations are in `include/ctransform.hpp`.
+All declarations are in [`include/ctransform.hpp`](../../include/ctransform.hpp).
 
 ## Grid structs
 
@@ -52,7 +52,7 @@ Explicit instantiations are provided for `float` and `double`. No other types ar
 
 ## Ownership and allocation
 
-All arrays are caller-owned. The GPU wrappers allocate and free device memory internally via `DeviceBuffer<T>` (see `include/cuda_utils.cuh`). The caller provides host pointers for all inputs and the output.
+All arrays are caller-owned. The GPU wrappers allocate and free device memory internally via `DeviceBuffer<T>` (see [`include/cuda_utils.cuh`](../../include/cuda_utils.cuh)). The caller provides host pointers for all inputs and the output.
 
 ## Row-major indexing (2D)
 

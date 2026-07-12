@@ -47,7 +47,7 @@ The following are explicitly **not** part of this project:
 - Continuous formulations
 - Dual ascent or iterative c-conjugate computation
 - W₂ Wasserstein distance computation
-- Python bindings (planned future work; see `docs/engineering/python_extention_plan.md`)
+- Python bindings (planned future work; see [`docs/engineering/python_extention_plan.md`](engineering/python_extention_plan.md))
 - Cost functions other than squared Euclidean
 
 ---

@@ -1,6 +1,6 @@
 # Python extension plan
 
-> **Note**: The filename `python_extention_plan.md` contains a typo ("extention" → "extension"). The file is kept at its current path to avoid breaking references; rename it once a canonical rename is agreed upon and `docs/index.md` is updated.
+> **Note**: The filename `python_extention_plan.md` contains a typo ("extention" → "extension"). The file is kept at its current path to avoid breaking references; rename it once a canonical rename is agreed upon and [`docs/index.md`](../index.md) is updated.
 
 ---
 
@@ -10,7 +10,7 @@ The Python layer is **future work**. It must not be started until:
 
 1. C++ reference implementation is complete and tested (CPU sequential loop, verified analytically)
 2. CUDA kernels are verified against the C++ reference (Tier 2 tests passing)
-3. Numerical test suite passes (Tiers 1–3 from `test_strategy.md`)
+3. Numerical test suite passes (Tiers 1–3 from [`test_strategy.md`](test_strategy.md))
 4. A stable C++ API is defined (see below)
 
 Do not write binding code in advance of these milestones.
