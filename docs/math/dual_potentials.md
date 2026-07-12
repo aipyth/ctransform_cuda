@@ -4,35 +4,33 @@
 
 In the Kantorovich formulation of optimal transport, the primal problem minimizes transport cost over couplings. Its dual introduces two potential functions:
 
-```
-φ : X → ℝ   (source potential)
-ψ : Y → ℝ   (target potential)
-```
+$$
+\varphi : X \to \mathbb{R} \quad \text{(source potential)}, \qquad \psi : Y \to \mathbb{R} \quad \text{(target potential)}
+$$
 
 The dual objective is:
 
-```
-max_{φ,ψ} { ∫ φ dμ + ∫ ψ dν  subject to  φ(x) + ψ(y) ≤ c(x,y)  ∀x,y }
-```
+$$
+\max_{\varphi, \psi} \left\{ \int \varphi \, d\mu + \int \psi \, d\nu \; : \; \varphi(x) + \psi(y) \leq c(x,y) \;\; \forall x, y \right\}
+$$
 
-The c-transform connects φ and ψ at the dual optimum: **ψ = φ^c**.
+The c-transform connects $\varphi$ and $\psi$ at the dual optimum: $\psi = \varphi^c$.
 
 ---
 
 ## c-conjugate pair
 
-A pair (φ, ψ) is called a **c-conjugate pair** when:
+A pair $(\varphi, \psi)$ is called a **c-conjugate pair** when:
 
-```
-ψ = φ^c   and   φ = ψ^c
-```
+$$
+\psi = \varphi^c \quad \text{and} \quad \varphi = \psi^c
+$$
 
 At the dual optimum of the Kantorovich problem, the potentials form a c-conjugate pair. This means:
 
-```
-ψ(y) = min_{x ∈ X} { c(x,y) − φ(x) }
-φ(x) = min_{y ∈ Y} { c(x,y) − ψ(y) }
-```
+$$
+\psi(y) = \min_{x \in X} \{ c(x,y) - \varphi(x) \}, \qquad \varphi(x) = \min_{y \in Y} \{ c(x,y) - \psi(y) \}
+$$
 
 The two equalities hold simultaneously only at optimality.
 
@@ -40,38 +38,38 @@ The two equalities hold simultaneously only at optimality.
 
 ## c-concavity
 
-A function φ is called **c-concave** if there exists ψ such that φ = ψ^c, i.e. φ can be written as a c-transform of some function.
+A function $\varphi$ is called **c-concave** if there exists $\psi$ such that $\varphi = \psi^c$, i.e. $\varphi$ can be written as a c-transform of some function.
 
-Equivalently, φ is c-concave if and only if:
+Equivalently, $\varphi$ is c-concave if and only if:
 
-```
-φ = (φ^c)^c
-```
+$$
+\varphi = (\varphi^c)^c
+$$
 
-The inequality (φ^c)^c ≥ φ always holds; equality characterizes c-concavity.
+The inequality $(\varphi^c)^c \geq \varphi$ always holds; equality characterizes c-concavity.
 
-The c-transform of any function is always c-concave: φ^c is c-concave regardless of whether φ itself is.
+The c-transform of any function is always c-concave: $\varphi^c$ is c-concave regardless of whether $\varphi$ itself is.
 
 ---
 
 ## Inf-convolution interpretation
 
-For fixed y, the function x ↦ c(x,y) − φ(x) is a shifted version of the cost. The c-transform:
+For fixed $y$, the function $x \mapsto c(x,y) - \varphi(x)$ is a shifted version of the cost. The c-transform:
 
-```
-φ^c(y) = inf_{x ∈ X} { c(x,y) − φ(x) }
-```
+$$
+\varphi^c(y) = \inf_{x \in X} \{ c(x,y) - \varphi(x) \}
+$$
 
-is the **inf-convolution** of c(·,y) with −φ. Geometrically:
+is the **inf-convolution** of $c(\cdot,y)$ with $-\varphi$. Geometrically:
 
-- The graph of −φ^c is the **lower envelope** of the family of functions { x ↦ c(x,y) − φ(x) } as x varies
-- For the squared Euclidean cost, each function x ↦ ½‖x−y‖² − φ(x) is a paraboloid translated by y; the lower envelope is the Legendre–Fenchel transform up to a sign and quadratic shift
+- The graph of $-\varphi^c$ is the **lower envelope** of the family of functions $\{ x \mapsto c(x,y) - \varphi(x) \}$ as $x$ varies
+- For the squared Euclidean cost, each function $x \mapsto \tfrac{1}{2}\|x-y\|^2 - \varphi(x)$ is a paraboloid translated by $y$; the lower envelope is the Legendre–Fenchel transform up to a sign and quadratic shift
 
 ---
 
 ## What this project computes
 
-This project computes **one application of the c-transform**: given φ and the grids X and Y, it returns φ^c. It does **not**:
+This project computes **one application of the c-transform**: given $\varphi$ and the grids $X$ and $Y$, it returns $\varphi^c$. It does **not**:
 
 - Iterate to find a c-conjugate pair
 - Solve the full Kantorovich dual problem
@@ -85,16 +83,16 @@ The single c-transform step is the inner loop of many OT algorithms (Auction, AP
 
 ## Relation to convex analysis (squared Euclidean cost)
 
-For c(x,y) = ½‖x−y‖², the c-transform relates to the classical **Legendre–Fenchel transform** (convex conjugate). Specifically, if we define:
+For $c(x,y) = \tfrac{1}{2}\|x-y\|^2$, the c-transform relates to the classical **Legendre–Fenchel transform** (convex conjugate). Specifically, if we define:
 
-```
-f(x) = ½‖x‖² − φ(x)
-```
+$$
+f(x) = \tfrac{1}{2}\|x\|^2 - \varphi(x)
+$$
 
 then:
 
-```
-φ^c(y) = ½‖y‖² − f*(y)
-```
+$$
+\varphi^c(y) = \tfrac{1}{2}\|y\|^2 - f^*(y)
+$$
 
-where f*(y) = sup_x { ⟨x,y⟩ − f(x) } is the Legendre transform of f. This connection means c-concave functions correspond to convex functions via this substitution, and the dual potentials at OT optimality are gradients of convex functions (Brenier's theorem).
+where $f^*(y) = \sup_x \{ \langle x,y \rangle - f(x) \}$ is the Legendre transform of $f$. This connection means c-concave functions correspond to convex functions via this substitution, and the dual potentials at OT optimality are gradients of convex functions (Brenier's theorem).
