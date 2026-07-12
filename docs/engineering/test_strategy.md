@@ -2,13 +2,22 @@
 
 ## Overview
 
-Tests are organized in four tiers: tiny deterministic, CPU reference comparison, randomized, and stress/benchmark. Tests live in `tests/` (currently empty) and are intended to be built as CMake targets linked against the c-transform kernels (once those are proper CMake targets).
+Tests are organized in four tiers: tiny deterministic, CPU reference comparison, randomized, and stress/benchmark. Tests live in `tests/` as GoogleTest suites built as CMake targets linked against the c-transform kernels.
+
+| Tier | Status | File(s) |
+|---|---|---|
+| 1. Tiny deterministic | Implemented | `test_ctransform_1d.cpp`, `test_cpu_reference.cpp` |
+| 2. CPU reference comparison | Implemented | `test_cuda_vs_cpu.cpp` |
+| 3. Randomized | Not yet implemented | — |
+| 4. Stress/large-scale | Not yet implemented | — |
+
+`test_perf.cpp` builds as a separate binary (`ctransform_perf`, not a CTest target); see [Performance benchmarks](#performance-benchmarks) below.
 
 ---
 
-## Tier 1: Tiny deterministic tests
+## Tier 1: Tiny deterministic tests (implemented)
 
-These tests have closed-form answers that can be verified by hand. They catch regression in the kernel formula itself.
+These tests have closed-form answers that can be verified by hand. They catch regression in the kernel formula itself. Implemented in `test_ctransform_1d.cpp` and `test_cpu_reference.cpp`.
 
 ### 1D tests
 
@@ -45,9 +54,9 @@ Xaxis0={−0.5,0.5}, Xaxis1={0.0,1.0,2.0}, Yaxis0={−0.5,0.5}, Yaxis1={−0.5,0
 
 ---
 
-## Tier 2: CPU reference comparisons
+## Tier 2: CPU reference comparisons (implemented)
 
-Implement a pure C++ reference function (no CUDA, no parallelism) that computes the c-transform by nested loop:
+Implemented in `test_cuda_vs_cpu.cpp`. A pure C++ reference function (no CUDA, no parallelism) computes the c-transform by nested loop:
 
 ```cpp
 // 1D reference
@@ -76,7 +85,7 @@ Run the CPU reference comparison for all Tier-1 inputs and all Tier-3 (randomize
 
 ---
 
-## Tier 3: Randomized tests
+## Tier 3: Randomized tests (not yet implemented)
 
 **Parameters**: seed-fixed `std::mt19937_64`; repeat for seeds {0, 1, 2, …, 9}
 
@@ -98,7 +107,7 @@ For each (seed, N, M) combination:
 
 ---
 
-## Tier 4: Stress tests
+## Tier 4: Stress tests (not yet implemented)
 
 **Purpose**: verify correctness at large scale and check for CUDA memory errors.
 
