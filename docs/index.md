@@ -17,6 +17,7 @@ Read these files first:
 - [`docs/engineering/memory_layout.md`](engineering/memory_layout.md)
 - [`docs/engineering/test_strategy.md`](engineering/test_strategy.md)
 - [`docs/engineering/python_extention_plan.md`](engineering/python_extention_plan.md)
+- [`docs/engineering/todo.md`](engineering/todo.md)
 
 Claude may help edit files under `docs/`.
 
