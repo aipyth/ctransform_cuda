@@ -48,7 +48,7 @@ The squared Euclidean cost has several favorable mathematical properties:
 
 - **Convexity in $x$**: for fixed $y$, $c(x,y)$ is convex and strongly convex in $x$
 - **Brenier's theorem**: under this cost, the optimal transport map (when it exists) is the gradient of a convex function; this connects c-concave potentials to convex functions
-- **Decomposability**: in 2D with axis-separated grids, the cost splits as $\tfrac{1}{2} d_0^2 + \tfrac{1}{2} d_1^2$, which the kernel exploits by loading $y_0$ and $y_1$ into registers independently
+- **Decomposability**: in 2D with axis-separated grids, the cost splits as $\tfrac{1}{2} d_0^2 + \tfrac{1}{2} d_1^2$, which the current kernel exploits only by loading $y_0$ and $y_1$ into registers independently — see [`separable_ctransform.md`](separable_ctransform.md) for the algorithmic (not just register-level) exploitation of this property, planned but not yet implemented
 - **Smoothness**: $c$ is $C^\infty$, which simplifies analytical gradient checks
 
 ---
