@@ -46,7 +46,7 @@ __global__ void quadraticCTransform1DKernel (
 }
 
 template <typename T>
-void quadraticCTransform(
+void quadraticCTransform1D(
     const T* X,
     const T* Y,
     const T* phi,
@@ -76,5 +76,5 @@ void quadraticCTransform(
     CUDA_CHECK(cudaMemcpy(out, devOut.get(), grid.ny * sizeof(T), cudaMemcpyDeviceToHost));
 }
 
-template void quadraticCTransform(const float*, const float*, const float*, float*, Grid1D);
-template void quadraticCTransform(const double*, const double*, const double*, double*, Grid1D);
+template void quadraticCTransform1D(const float*, const float*, const float*, float*, Grid1D);
+template void quadraticCTransform1D(const double*, const double*, const double*, double*, Grid1D);

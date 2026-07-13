@@ -11,9 +11,9 @@ static void bench1D(std::size_t nx, std::size_t ny) {
     Grid1D grid{nx, ny};
 
     auto t0 = std::chrono::high_resolution_clock::now();
-    quadraticCTransformCPU(X.data(), Y.data(), phi.data(), out_cpu.data(), grid);
+    quadraticCTransformCPU1D(X.data(), Y.data(), phi.data(), out_cpu.data(), grid);
     auto t1 = std::chrono::high_resolution_clock::now();
-    quadraticCTransform   (X.data(), Y.data(), phi.data(), out_gpu.data(), grid);
+    quadraticCTransform1D   (X.data(), Y.data(), phi.data(), out_gpu.data(), grid);
     auto t2 = std::chrono::high_resolution_clock::now();
 
     double ms_cpu = std::chrono::duration<double, std::milli>(t1 - t0).count();

@@ -62,7 +62,7 @@ __global__ void quadraticCTransform2DKernel (
 }
 
 template <typename T>
-void quadraticCTransform(
+void quadraticCTransform2D(
     const T* Xaxis0,
     const T* Xaxis1,
     const T* Yaxis0,
@@ -103,5 +103,5 @@ void quadraticCTransform(
     CUDA_CHECK(cudaMemcpy(out, devOut.get(), grid.ny0 * grid.ny1 * sizeof(T), cudaMemcpyDeviceToHost));
 }
 
-template void quadraticCTransform(const float*, const float*, const float*, const float*, const float*, float*, Grid2D);
-template void quadraticCTransform(const double*, const double*, const double*, const double*, const double*, double*, Grid2D);
+template void quadraticCTransform2D(const float*, const float*, const float*, const float*, const float*, float*, Grid2D);
+template void quadraticCTransform2D(const double*, const double*, const double*, const double*, const double*, double*, Grid2D);

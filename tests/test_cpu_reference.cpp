@@ -3,14 +3,14 @@
 
 TEST(CPUReference1D, TrivialZero) {
   double X[] = { 0.0 }, Y[] = { 0.0 }, phi[] = {0.0}, out[1];
-  quadraticCTransformCPU(X, Y, phi, out, Grid1D(1, 1));
+  quadraticCTransformCPU1D(X, Y, phi, out, Grid1D(1, 1));
   EXPECT_NEAR(out[0], 0.0, 1e-12);
 }
 
 TEST(CPUReference1D, SinglePair) {
   // phi^c (0.5) = min(0.5 * (0 - 0.5)^2 - 0, 0.5 * (1 - 0.5)^2 - 0) = 0.125
   double X[] = {0.0, 1.0}, Y[] = {0.5}, phi[] = {0.0, 0.0}, out[1];
-  quadraticCTransformCPU(X, Y, phi, out, Grid1D(2, 1));
+  quadraticCTransformCPU1D(X, Y, phi, out, Grid1D(2, 1));
   EXPECT_NEAR(out[0], 0.125, 1e-12);
 }
 
@@ -21,11 +21,11 @@ TEST(CPUReference1D, ConstantPhiShift) {
   double out_base[1], out_shifted[1];
 
   double phi0[] = {0.0, 0.0};
-  quadraticCTransformCPU(X, Y, phi0, out_base, grid);
+  quadraticCTransformCPU1D(X, Y, phi0, out_base, grid);
 
   double k = 3.7;
   double phik[] = {k, k};
-  quadraticCTransformCPU(X, Y, phik, out_shifted, grid);
+  quadraticCTransformCPU1D(X, Y, phik, out_shifted, grid);
 
   EXPECT_NEAR(out_shifted[0], out_base[0] - k, 1e-12);
 }
@@ -38,7 +38,7 @@ TEST(CPUReference1D, SymmetricGrid) {
   double Y[] = {-0.5, 0.5};
   double phi[] = {0.0, 0.0, 0.0};
   double out[2];
-  quadraticCTransformCPU(X, Y, phi, out, Grid1D(3, 2));
+  quadraticCTransformCPU1D(X, Y, phi, out, Grid1D(3, 2));
   EXPECT_NEAR(out[0], 0.125, 1e-12);
   EXPECT_NEAR(out[1], 0.125, 1e-12);
 }
@@ -47,7 +47,7 @@ TEST(CPUReference1D, PhiCancellation) {
   // X = {0, 2}, Y = {1}, phi = {0.5, 0.5}
   // phi^c(1) = min(0.5*1^2 - 0.5, 0.5*1^2 - 0.5) = 0.0
   double X[] = {0.0, 2.0}, Y[] = {1.0}, phi[] = {0.5, 0.5}, out[1];
-  quadraticCTransformCPU(X, Y, phi, out, Grid1D(2, 1));
+  quadraticCTransformCPU1D(X, Y, phi, out, Grid1D(2, 1));
   EXPECT_NEAR(out[0], 0.0, 1e-12);
 }
 
@@ -57,7 +57,7 @@ TEST(CPUReference2D, TrivialZero) {
     double X0[] = {0.0}, X1[] = {0.0};
     double Y0[] = {0.0}, Y1[] = {0.0};
     double phi[] = {0.0}, out[1];
-    quadraticCTransformCPU(X0, X1, Y0, Y1, phi, out, Grid2D{1,1,1,1});
+    quadraticCTransformCPU2D(X0, X1, Y0, Y1, phi, out, Grid2D{1,1,1,1});
     EXPECT_NEAR(out[0], 0.0, 1e-12);
 }
 
@@ -67,7 +67,7 @@ TEST(CPUReference2D, SingleSource) {
     double X0[] = {0.0}, X1[] = {0.0};
     double Y0[] = {1.0}, Y1[] = {0.0};
     double phi[] = {0.0}, out[1];
-    quadraticCTransformCPU(X0, X1, Y0, Y1, phi, out, Grid2D{1,1,1,1});
+    quadraticCTransformCPU2D(X0, X1, Y0, Y1, phi, out, Grid2D{1,1,1,1});
     EXPECT_NEAR(out[0], 0.5, 1e-12);
 }
 
@@ -79,11 +79,11 @@ TEST(CPUReference2D, ConstantPhiShift) {
     double out_base[1], out_shifted[1];
 
     double phi0[] = {0.0, 0.0, 0.0, 0.0};
-    quadraticCTransformCPU(X0, X1, Y0, Y1, phi0, out_base, grid);
+    quadraticCTransformCPU2D(X0, X1, Y0, Y1, phi0, out_base, grid);
 
     double k = 2.5;
     double phik[] = {k, k, k, k};
-    quadraticCTransformCPU(X0, X1, Y0, Y1, phik, out_shifted, grid);
+    quadraticCTransformCPU2D(X0, X1, Y0, Y1, phik, out_shifted, grid);
 
     EXPECT_NEAR(out_shifted[0], out_base[0] - k, 1e-12);
 }
@@ -98,7 +98,7 @@ TEST(CPUReference2D, Separability) {
     double X0[] = {-0.5, 0.5}, X1[] = {0.0, 1.0};
     double Y0[] = {0.0},       Y1[] = {0.5};
     double phi[] = {0.0, 0.0, 0.0, 0.0}, out[1];
-    quadraticCTransformCPU(X0, X1, Y0, Y1, phi, out, Grid2D{2,2,1,1});
+    quadraticCTransformCPU2D(X0, X1, Y0, Y1, phi, out, Grid2D{2,2,1,1});
     EXPECT_NEAR(out[0], 0.25, 1e-12);
 }
 
@@ -110,6 +110,6 @@ TEST(CPUReference2D, KnownNonZeroPhi) {
     double X0[] = {0.0, 1.0}, X1[] = {0.0, 1.0};
     double Y0[] = {0.5},      Y1[] = {0.5};
     double phi[] = {0.1, 0.3, 0.0, 0.2}, out[1];
-    quadraticCTransformCPU(X0, X1, Y0, Y1, phi, out, Grid2D{2,2,1,1});
+    quadraticCTransformCPU2D(X0, X1, Y0, Y1, phi, out, Grid2D{2,2,1,1});
     EXPECT_NEAR(out[0], -0.05, 1e-12);
 }

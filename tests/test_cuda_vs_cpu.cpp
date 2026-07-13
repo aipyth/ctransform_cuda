@@ -19,8 +19,8 @@ TEST(CudaVsCPU1D, ZeroPhi) {
     Grid1D grid(X.size(), Y.size());
 
     std::vector<double> cpu(Y.size()), gpu(Y.size());
-    quadraticCTransformCPU(X.data(), Y.data(), phi.data(), cpu.data(), grid);
-    quadraticCTransform   (X.data(), Y.data(), phi.data(), gpu.data(), grid);
+    quadraticCTransformCPU1D(X.data(), Y.data(), phi.data(), cpu.data(), grid);
+    quadraticCTransform1D   (X.data(), Y.data(), phi.data(), gpu.data(), grid);
 
     EXPECT_LT(maxAbsErr(cpu, gpu), 1e-12);
 }
@@ -32,8 +32,8 @@ TEST(CudaVsCPU1D, NonZeroPhi) {
     Grid1D grid(X.size(), Y.size());
 
     std::vector<double> cpu(Y.size()), gpu(Y.size());
-    quadraticCTransformCPU(X.data(), Y.data(), phi.data(), cpu.data(), grid);
-    quadraticCTransform   (X.data(), Y.data(), phi.data(), gpu.data(), grid);
+    quadraticCTransformCPU1D(X.data(), Y.data(), phi.data(), cpu.data(), grid);
+    quadraticCTransform1D   (X.data(), Y.data(), phi.data(), gpu.data(), grid);
 
     EXPECT_LT(maxAbsErr(cpu, gpu), 1e-12);
 }
@@ -44,8 +44,8 @@ TEST(CudaVsCPU1D, SameGrid) {
     Grid1D grid(X.size(), X.size());
 
     std::vector<double> cpu(X.size()), gpu(X.size());
-    quadraticCTransformCPU(X.data(), X.data(), phi.data(), cpu.data(), grid);
-    quadraticCTransform   (X.data(), X.data(), phi.data(), gpu.data(), grid);
+    quadraticCTransformCPU1D(X.data(), X.data(), phi.data(), cpu.data(), grid);
+    quadraticCTransform1D   (X.data(), X.data(), phi.data(), gpu.data(), grid);
 
     EXPECT_LT(maxAbsErr(cpu, gpu), 1e-12);
 }
@@ -62,8 +62,8 @@ TEST(CudaVsCPU2D, ZeroPhi) {
 
     std::size_t nout = Y0.size() * Y1.size();
     std::vector<double> cpu(nout), gpu(nout);
-    quadraticCTransformCPU(X0.data(), X1.data(), Y0.data(), Y1.data(), phi.data(), cpu.data(), grid);
-    quadraticCTransform   (X0.data(), X1.data(), Y0.data(), Y1.data(), phi.data(), gpu.data(), grid);
+    quadraticCTransformCPU2D(X0.data(), X1.data(), Y0.data(), Y1.data(), phi.data(), cpu.data(), grid);
+    quadraticCTransform2D   (X0.data(), X1.data(), Y0.data(), Y1.data(), phi.data(), gpu.data(), grid);
 
     EXPECT_LT(maxAbsErr(cpu, gpu), 1e-12);
 }
@@ -78,8 +78,8 @@ TEST(CudaVsCPU2D, NonZeroPhi) {
 
     std::size_t nout = Y0.size() * Y1.size();
     std::vector<double> cpu(nout), gpu(nout);
-    quadraticCTransformCPU(X0.data(), X1.data(), Y0.data(), Y1.data(), phi.data(), cpu.data(), grid);
-    quadraticCTransform   (X0.data(), X1.data(), Y0.data(), Y1.data(), phi.data(), gpu.data(), grid);
+    quadraticCTransformCPU2D(X0.data(), X1.data(), Y0.data(), Y1.data(), phi.data(), cpu.data(), grid);
+    quadraticCTransform2D   (X0.data(), X1.data(), Y0.data(), Y1.data(), phi.data(), gpu.data(), grid);
 
     EXPECT_LT(maxAbsErr(cpu, gpu), 1e-12);
 }
@@ -95,8 +95,8 @@ TEST(CudaVsCPU2D, NonSquareGrid) {
 
     std::size_t nout = Y0.size() * Y1.size();
     std::vector<double> cpu(nout), gpu(nout);
-    quadraticCTransformCPU(X0.data(), X1.data(), Y0.data(), Y1.data(), phi.data(), cpu.data(), grid);
-    quadraticCTransform   (X0.data(), X1.data(), Y0.data(), Y1.data(), phi.data(), gpu.data(), grid);
+    quadraticCTransformCPU2D(X0.data(), X1.data(), Y0.data(), Y1.data(), phi.data(), cpu.data(), grid);
+    quadraticCTransform2D   (X0.data(), X1.data(), Y0.data(), Y1.data(), phi.data(), gpu.data(), grid);
 
     EXPECT_LT(maxAbsErr(cpu, gpu), 1e-12);
 }

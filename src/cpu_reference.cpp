@@ -7,7 +7,7 @@
 
 
 template <typename T>
-void quadraticCTransformCPU (
+void quadraticCTransformCPU1D (
     const T* Xaxis,     // shape (nx,)
     const T* Yaxis,     // shape (ny,)
     const T* Phi,       // shape (nx,)
@@ -31,7 +31,7 @@ void quadraticCTransformCPU (
 }
 
 template <typename T>
-void quadraticCTransformCPU (
+void quadraticCTransformCPU2D (
     const T* Xaxis0,     // shape (nx0,)
     const T* Xaxis1,     // shape (nx1,)
     const T* Yaxis0,     // shape (ny0,)
@@ -64,8 +64,8 @@ void quadraticCTransformCPU (
     }
 }
 
-template void quadraticCTransformCPU(const float*, const float*, const float*, float*, Grid1D);
-template void quadraticCTransformCPU(const double*, const double*, const double*, double*, Grid1D);
+template void quadraticCTransformCPU1D(const float*, const float*, const float*, float*, Grid1D);
+template void quadraticCTransformCPU1D(const double*, const double*, const double*, double*, Grid1D);
 
-template void quadraticCTransformCPU(const  float*, const float*, const float*, const float*, const float*, float*, Grid2D);
-template void quadraticCTransformCPU(const  double*, const double*, const double*, const double*, const double*, double*, Grid2D);
+template void quadraticCTransformCPU2D(const  float*, const float*, const float*, const float*, const float*, float*, Grid2D);
+template void quadraticCTransformCPU2D(const  double*, const double*, const double*, const double*, const double*, double*, Grid2D);

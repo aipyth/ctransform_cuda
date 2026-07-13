@@ -12,7 +12,7 @@ int main(void) {
 
   Grid1D grid { X.size(), Y.size() };
 
-  quadraticCTransform(X.data(), Y.data(), phi.data(), psi.data(), grid);
+  quadraticCTransform1D(X.data(), Y.data(), phi.data(), psi.data(), grid);
 
   printVector("X  ", X);
   printVector("Y  ", Y);

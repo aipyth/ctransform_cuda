@@ -9,7 +9,7 @@ struct Grid2D { std::size_t nx0, nx1, ny0, ny1; };
 
 // public host wrapper function
 template <typename T>
-void quadraticCTransform(
+void quadraticCTransform1D(
     const T* X,
     const T* Y,
     const T* phi,
@@ -18,7 +18,7 @@ void quadraticCTransform(
 );
 
 template <typename T>
-void quadraticCTransformCPU(
+void quadraticCTransformCPU1D(
     const T* X,
     const T* Y,
     const T* Phi,
@@ -27,7 +27,7 @@ void quadraticCTransformCPU(
 );
 
 template <typename T>
-void quadraticCTransform(
+void quadraticCTransform2D(
     const T* Xaxis0, const T* Xaxis1,
     const T* Yaxis0, const T* Yaxis1,
     const T* Phi,
@@ -36,7 +36,7 @@ void quadraticCTransform(
     );
 
 template <typename T>
-void quadraticCTransformCPU(
+void quadraticCTransformCPU2D(
     const T* Xaxis0, const T* Xaxis1,
     const T* Yaxis0, const T* Yaxis1,
     const T* Phi,
