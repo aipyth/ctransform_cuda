@@ -11,6 +11,7 @@ Read these files first:
 - [`docs/math/dual_potentials.md`](math/dual_potentials.md)
 - [`docs/math/numerical_stability.md`](math/numerical_stability.md)
 - [`docs/math/cost_functions.md`](math/cost_functions.md)
+- [`docs/math/separable_ctransform.md`](math/separable_ctransform.md)
 - [`docs/engineering/api.md`](engineering/api.md)
 - [`docs/engineering/cuda_cpp_architecture.md`](engineering/cuda_cpp_architecture.md)
 - [`docs/engineering/memory_layout.md`](engineering/memory_layout.md)
