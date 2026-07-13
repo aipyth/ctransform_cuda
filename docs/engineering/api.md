@@ -20,7 +20,7 @@ struct Grid2D {
 
 ```cpp
 template <typename T>
-void quadraticCTransform(
+void quadraticCTransform1D(
     const T* X,    // source coordinates, shape (nx,)
     const T* Y,    // target coordinates, shape (ny,)
     const T* phi,  // source potential,   shape (nx,)
@@ -33,7 +33,7 @@ void quadraticCTransform(
 
 ```cpp
 template <typename T>
-void quadraticCTransform(
+void quadraticCTransform2D(
     const T* Xaxis0, const T* Xaxis1,   // source axes, shapes (nx0,) and (nx1,)
     const T* Yaxis0, const T* Yaxis1,   // target axes, shapes (ny0,) and (ny1,)
     const T* phi,                        // source potential, shape (nx0*nx1,), row-major
@@ -44,7 +44,7 @@ void quadraticCTransform(
 
 ## CPU reference — 1D and 2D
 
-Same signatures as the GPU wrappers above, named `quadraticCTransformCPU`. Serial implementation intended for correctness verification, not performance.
+Same signatures as the GPU wrappers above, named `quadraticCTransformCPU1D` / `quadraticCTransformCPU2D`. Serial implementation intended for correctness verification, not performance.
 
 ## Supported types
 

@@ -82,8 +82,8 @@ Properties:
 The host wrappers are function templates. Their definitions live in `.cu` files (compiled by nvcc), which g++-compiled test files cannot see. Each `.cu` file therefore provides explicit instantiations at the bottom:
 
 ```cpp
-template void quadraticCTransform<float>(...);
-template void quadraticCTransform<double>(...);
+template void quadraticCTransform1D<float>(...);
+template void quadraticCTransform1D<double>(...);
 ```
 
 This forces nvcc to emit the compiled symbols so the linker can resolve calls from `.cpp` test files.
