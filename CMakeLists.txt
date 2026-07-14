@@ -3,10 +3,11 @@ cmake_minimum_required(VERSION 3.26)
 project(ctransform, LANGUAGES CXX CUDA)
 
 add_library(ctransform_lib STATIC
-    src/ctransform_naive.cu
-    src/ctransform2d_naive.cu
-    src/cpu_reference.cpp
-    )
+  src/ctransform1D_naive.cu
+  src/ctransform2D_naive.cu
+  src/ctransform2D_separable.cu
+  src/cpu_reference.cpp
+  )
 
 target_include_directories(ctransform_lib
     PUBLIC
