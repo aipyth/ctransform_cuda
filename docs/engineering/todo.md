@@ -12,11 +12,12 @@ this file doesn't drift into being the only record of a decision.
 
 ## Algorithms
 
-- [ ] **Separable 2D c-transform kernel.** Exploit additive separability of the cost
+- [x] **Separable 2D c-transform kernel.** Exploit additive separability of the cost
       across axes: two sequential 1D passes (collapse axis 1, then axis 0) via an
       intermediate buffer, instead of the joint double loop. Reduces complexity from
       $O(n_{x_0}n_{x_1}n_{y_0}n_{y_1})$ to $O(n_{x_0}n_{x_1}n_{y_1} + n_{x_0}n_{y_0}n_{y_1})$.
-      **Current focus.**
+      Implemented in `src/ctransform2D_separable.cu` (two kernels + `_launch` device layer
+      + host wrapper); design notes in [`separable_kernel_spec.md`](separable_kernel_spec.md).
 - [ ] **GPU parabola lower-envelope (Felzenszwalt–Huttenlocher generalized distance
       transform).** $O(n)$ per line instead of $O(n^2)$, for the squared-Euclidean
       cost specifically. Well-established on CPU; GPU viability is unproven — the
@@ -58,7 +59,11 @@ this file doesn't drift into being the only record of a decision.
       device-pointer/stream-only launch function with no allocation, copy, or
       implicit sync, and (b) today's alloc/copy/sync convenience wrapper calling (a).
       Needed for any GPU-resident iterative solver that calls the c-transform every
-      iteration without a host round-trip.
+      iteration without a host round-trip. **Done for 2D separable**
+      (`quadraticCTransform2DSeparable_launch`); still to do for `quadraticCTransform1D`
+      and `quadraticCTransform2D` (naive). The `_launch` declaration is exposed in
+      `ctransform.hpp` behind a g++-safe forward declaration of `cudaStream_t`; apply the
+      same header pattern when adding the 1D/2D launch functions.
 - [ ] **JAX custom-call / FFI integration.** For an exact (non-entropic) GPU-resident
       solver driven by `lax.while_loop`, register the device-pointer launch function
       as an XLA custom call so JAX never touches host memory mid-iteration. Depends
@@ -68,6 +73,8 @@ this file doesn't drift into being the only record of a decision.
 
 - [ ] **Tier 3 (randomized) and Tier 4 (stress/large-scale) suites** — not yet
       implemented per [`test_strategy.md`](test_strategy.md).
-- [ ] Tolerance check for the separable kernel specifically: its reduction order
+- [x] Tolerance check for the separable kernel specifically: its reduction order
       differs from the naive joint loop (nested min vs. joint min), so add a
       separable-vs-naive comparison in addition to separable-vs-CPU-reference.
+      Done — `CudaSeparableVsNaive2D` and `CudaSeparableVsCPU2D` (+ two literal-value
+      `Separable2D` cases); `1e-12` holds on current fixtures.
