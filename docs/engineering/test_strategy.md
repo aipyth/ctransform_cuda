@@ -52,6 +52,22 @@ X={−0.5, 0.0, 0.5}, Y={−0.2, 0.0, 0.2, 0.5}, Phi={0.2, 0.0, 0.3}
 Xaxis0={−0.5,0.5}, Xaxis1={0.0,1.0,2.0}, Yaxis0={−0.5,0.5}, Yaxis1={−0.5,0.5}, Phi (2×3) as in source  
 → compute expected values and assert
 
+### 2D separable tests (implemented in `test_cuda_vs_cpu.cpp`)
+
+See [`separable_kernel_spec.md`](separable_kernel_spec.md) for the kernel design these
+tests exercise. Two tests assert a literal closed-form value (not just agreement with
+another implementation — a bug shared between the separable and naive/CPU kernels
+wouldn't be caught by cross-comparison alone), reusing fixtures already hand-verified in
+`test_cpu_reference.cpp`:
+
+**`Separable2D.KnownZeroPhi`** — same fixture as `CPUReference2D.Separability`:
+Xaxis0={−0.5,0.5}, Xaxis1={0,1}, Yaxis0={0}, Yaxis1={0.5}, Phi=0  
+→ psi = **0.25** (per-axis split: dim-0 min 0.125, dim-1 min 0.125)
+
+**`Separable2D.KnownNonZeroPhi`** — same fixture as `CPUReference2D.KnownNonZeroPhi`:
+Xaxis0={0,1}, Xaxis1={0,1}, Yaxis0={0.5}, Yaxis1={0.5}, Phi={0.1,0.3,0.0,0.2}  
+→ psi = **−0.05** (= 0.25 − max(phi))
+
 ---
 
 ## Tier 2: CPU reference comparisons (implemented)
@@ -82,6 +98,48 @@ max_{i} |psi_GPU[i] − psi_CPU[i]| < 1e-12   (double)
 This tolerance is derived from double machine epsilon (~2.2e-16) times the expected magnitude of the result (~1). For inputs with ‖psi‖ ≫ 1 the tolerance should scale accordingly.
 
 Run the CPU reference comparison for all Tier-1 inputs and all Tier-3 (randomized) inputs.
+
+### 2D separable comparisons (implemented)
+
+Two comparisons, both addable to `tests/test_cuda_vs_cpu.cpp` reusing its existing
+`maxAbsErr` helper — no new test file or CMake target needed.
+
+**`CudaSeparableVsCPU2D`**: separable GPU output vs. `quadraticCTransformCPU2D` (the
+existing joint-loop CPU reference). Reuse the same three fixtures as `CudaVsCPU2D`:
+`ZeroPhi`, `NonZeroPhi`, `NonSquareGrid`. `NonSquareGrid` matters specifically here: it's
+the case that would catch a pass-1 launch-grid sizing bug (`nx0` vs. `ny0` — see
+`separable_kernel_spec.md`), since it's the only fixture where `nx0 ≠ ny0`.
+
+**`CudaSeparableVsNaive2D`**: separable GPU output vs. the existing naive
+`quadraticCTransform2D` GPU kernel, same fixtures. This is the comparison called for in
+`todo.md`'s Testing section — the two GPU implementations should agree even though
+neither is the "reference."
+
+```cpp
+TEST(CudaSeparableVsCPU2D, NonSquareGrid) {
+    // same fixture as CudaVsCPU2D.NonSquareGrid
+    ...
+    quadraticCTransformCPU2D(...);
+    quadraticCTransform2DSeparable(...);
+    EXPECT_LT(maxAbsErr(cpu, separable), 1e-12);
+}
+
+TEST(CudaSeparableVsNaive2D, NonSquareGrid) {
+    ...
+    quadraticCTransform2D(...);            // naive GPU
+    quadraticCTransform2DSeparable(...);   // separable GPU
+    EXPECT_LT(maxAbsErr(naive, separable), 1e-12);
+}
+```
+
+**Tolerance note**: per the "Numerical note" in
+[`separable_ctransform.md`](../math/separable_ctransform.md), the separable path's
+nested min-of-min accumulates `0.5*d0^2 + g(x0,y1)` in a different grouping than the
+naive kernel's single joint `0.5*(d0^2+d1^2) - Phi`, so bit-identical output isn't
+guaranteed — only equal up to rounding. **Outcome**: on the current tiny fixtures the
+standard `1e-12` bound holds for both the vs-CPU and vs-naive comparisons (double
+precision), so no loosening was needed. The margin has only been checked on small
+unit-domain grids; revisit if larger or non-normalized inputs are added (Tier 3/4).
 
 ---
 
