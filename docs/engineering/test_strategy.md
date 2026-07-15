@@ -8,8 +8,8 @@ Tests are organized in four tiers: tiny deterministic, CPU reference comparison,
 |---|---|---|
 | 1. Tiny deterministic | Implemented | `test_ctransform_1d.cpp`, `test_cpu_reference.cpp` |
 | 2. CPU reference comparison | Implemented | `test_cuda_vs_cpu.cpp` |
-| 3. Randomized | Not yet implemented | — |
-| 4. Stress/large-scale | Not yet implemented | — |
+| 3. Randomized | Implemented | `test_randomized.cpp` |
+| 4. Stress/large-scale | Implemented | `test_stress.cpp` |
 
 `test_perf.cpp` builds as a separate binary (`ctransform_perf`, not a CTest target); see [Performance benchmarks](#performance-benchmarks) below.
 
@@ -143,7 +143,11 @@ unit-domain grids; revisit if larger or non-normalized inputs are added (Tier 3/
 
 ---
 
-## Tier 3: Randomized tests (not yet implemented)
+## Tier 3: Randomized tests (implemented)
+
+Implemented in `test_randomized.cpp`. The 2D suite checks **both** the naive and the
+separable GPU kernels against the CPU reference in the same loop. `1e-12` holds across all
+seeds and shapes.
 
 **Parameters**: seed-fixed `std::mt19937_64`; repeat for seeds {0, 1, 2, …, 9}
 
@@ -165,7 +169,12 @@ For each (seed, N, M) combination:
 
 ---
 
-## Tier 4: Stress tests (not yet implemented)
+## Tier 4: Stress tests (implemented)
+
+Implemented in `test_stress.cpp` (2D cases exercise naive + separable). **Note**: the
+"no CUDA error" cases currently assert finiteness only (`std::isfinite`) — the
+`cudaGetLastError`/`cudaDeviceSynchronize` checks below need CUDA headers in the test TU,
+which the g++-compiled `.cpp` tests deliberately avoid, so they are not yet asserted.
 
 **Purpose**: verify correctness at large scale and check for CUDA memory errors.
 
