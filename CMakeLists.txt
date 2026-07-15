@@ -47,6 +47,8 @@ add_executable(ctransform_tests
     tests/test_ctransform_1d.cpp
     tests/test_cpu_reference.cpp
     tests/test_cuda_vs_cpu.cpp
+    tests/test_randomized.cpp
+    tests/test_stress.cpp
 )
 target_link_libraries(ctransform_tests
     PRIVATE
