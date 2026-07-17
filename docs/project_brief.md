@@ -6,6 +6,16 @@
 
 This project is a **standalone kernel library** for that single operation. It is not an optimal transport solver.
 
+**Equivalent framing.** For the squared-Euclidean cost this project implements, the
+c-transform is *exactly* the grid-sampled **Moreau envelope** of $-\varphi$ (extended by
+$+\infty$ off $X$), and its (currently unexposed) argmin is the corresponding
+**proximal point**. So the same kernel is a primitive not only for OT solvers (Auction,
+back-and-forth, semi-discrete methods) but for any proximal-gradient, ADMM, or
+operator-splitting method that needs a Moreau-envelope/prox evaluation over a finite
+point set. See [`docs/math/moreau_proximal.md`](math/moreau_proximal.md) for the exact
+identity and its caveats (non-uniqueness of the argmin, grid-discretization error when
+approximating a continuous objective).
+
 ---
 
 ## Formulation in scope

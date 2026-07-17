@@ -96,3 +96,9 @@ $$
 $$
 
 where $f^*(y) = \sup_x \{ \langle x,y \rangle - f(x) \}$ is the Legendre transform of $f$. This connection means c-concave functions correspond to convex functions via this substitution, and the dual potentials at OT optimality are gradients of convex functions (Brenier's theorem).
+
+---
+
+## Moreau envelope reading
+
+A second, more direct convex-analysis identity: $\varphi^c$ is exactly the Moreau envelope of $-\varphi$ (extended by $+\infty$ off $X$), and its argmin is the corresponding proximal point. This is the identity underlying the still-open argmin/index-output item in [`todo.md`](../engineering/todo.md). See [`moreau_proximal.md`](moreau_proximal.md) for the derivation, the non-uniqueness caveat (this extended function is essentially never convex, so unlike the classical case the proximal point is not guaranteed single-valued), and what this means for readers arriving from proximal/operator-splitting algorithms rather than OT.

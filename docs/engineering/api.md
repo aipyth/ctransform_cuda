@@ -102,7 +102,7 @@ Status legend: **✓ implemented** · **◐ in progress** · **○ planned**.
 | `quadraticCTransform2D` | host wrapper | 2D | ✓ |
 | `quadraticCTransform2DSeparable` | host wrapper | 2D | ✓ |
 | `quadraticCTransform2DSeparable_launch` | launch layer | 2D | ✓ |
-| `quadraticCTransform1D_launch`, `quadraticCTransform2D_launch` | launch layer | 1D/2D | ○ |
+| `quadraticCTransform1D_launch`, `quadraticCTransform2D_launch` | launch layer | 1D/2D | ◐ spec below |
 | `quadraticCTransform3D…` | kernels + wrappers | 3D | ○ |
 | `quadraticCTransform2DEnvelope` (Felzenszwalb–Huttenlocher O(n)/line) | variant | 2D | ○ |
 | Python bindings | binding | — | ○ |
@@ -180,6 +180,54 @@ allocation, copy, or synchronization — see the launch-layer description under
 two passes, allocated once by the caller and reused across iterations. The corresponding
 host wrapper `quadraticCTransform2DSeparable` is a thin marshalling shell over this
 function.
+
+### GPU launch layer — 1D and 2D naive (spec, not yet implemented)
+
+Same split as the separable case, applied to `quadraticCTransform1D` and
+`quadraticCTransform2D`: each currently does alloc → copy → launch → sync → copy in one
+function ([`ctransform1D_naive.cu`](../../src/ctransform1D_naive.cu),
+[`ctransform2D_naive.cu`](../../src/ctransform2D_naive.cu)). The refactor is mechanical —
+pull the existing `<<<blocks, threads>>>` launch out into a `_launch` function taking
+device pointers and a stream, and no allocation/copy/sync of its own; the host wrapper
+becomes a thin shell that calls it, same pattern as
+[`quadraticCTransform2DSeparable_launch`](#gpu-launch-layer--2d-separable) above. No
+scratch buffer is needed here (unlike the separable pass) since each is a single joint
+kernel launch — no intermediate buffer between kernels.
+
+```cpp
+template <typename T>
+void quadraticCTransform1D_launch(
+    const T* dX,      // DEVICE pointer, source coords,    shape (nx,)
+    const T* dY,      // DEVICE pointer, target coords,    shape (ny,)
+    const T* dPhi,    // DEVICE pointer, source potential,  shape (nx,)
+    T* dOut,          // DEVICE pointer, output potential,  shape (ny,)
+    Grid1D grid,
+    cudaStream_t stream = 0
+);
+
+template <typename T>
+void quadraticCTransform2D_launch(
+    const T* dXaxis0, const T* dXaxis1,   // DEVICE pointers
+    const T* dYaxis0, const T* dYaxis1,
+    const T* dPhi,
+    T* dOut,
+    Grid2D grid,
+    cudaStream_t stream = 0
+);
+```
+
+Launch configuration to carry over unchanged from the current host wrappers:
+`quadraticCTransform1D_launch` uses `threads = 256`, `blocks = ceil(ny / 256)`;
+`quadraticCTransform2D_launch` uses `dim3 threads(16, 16)` with blocks sized over
+`(ny1, ny0)` (fast-varying `iy1` mapped to `threadIdx.x` for coalesced output writes, per
+the comment in `quadraticCTransform2DKernel`).
+
+**Review note, not part of the refactor**: `quadraticCTransform1DKernel` indexes with
+`int iy = threadIdx.x + blockDim.x * blockIdx.x`, while `Grid1D::ny` is `std::size_t`.
+This is a pre-existing latent overflow risk (silently wraps if `ny` exceeds `INT_MAX`),
+not introduced by the launch-layer split — worth a one-line fix (`int` → matching
+`std::size_t`/`long` index type) whenever that file is next touched, but out of scope for
+the pure launch/wrapper split.
 
 ---
 

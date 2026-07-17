@@ -9,6 +9,7 @@ Read these files first:
 - [`docs/project_brief.md`](project_brief.md)
 - [`docs/math/ctransform_overview.md`](math/ctransform_overview.md)
 - [`docs/math/dual_potentials.md`](math/dual_potentials.md)
+- [`docs/math/moreau_proximal.md`](math/moreau_proximal.md)
 - [`docs/math/numerical_stability.md`](math/numerical_stability.md)
 - [`docs/math/cost_functions.md`](math/cost_functions.md)
 - [`docs/math/separable_ctransform.md`](math/separable_ctransform.md)
@@ -18,6 +19,7 @@ Read these files first:
 - [`docs/engineering/memory_layout.md`](engineering/memory_layout.md)
 - [`docs/engineering/test_strategy.md`](engineering/test_strategy.md)
 - [`docs/engineering/python_extention_plan.md`](engineering/python_extention_plan.md)
+- [`docs/engineering/jax_ffi_integration.md`](engineering/jax_ffi_integration.md)
 - [`docs/engineering/todo.md`](engineering/todo.md)
 
 Claude may help edit files under `docs/`.

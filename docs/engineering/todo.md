@@ -38,15 +38,26 @@ this file doesn't drift into being the only record of a decision.
       (previously overloaded by signature) to `quadraticCTransform1D` /
       `quadraticCTransform2D` (and CPU equivalents), matching the kernel names and
       the planned Python names (`ctransform_1d`/`ctransform_2d`).
-- [ ] **Argmin/index output — open question, needs checking.** Target use case is
-      Matt Jacobs' back-and-forth method, not the Auction algorithm. Jacobs recovers
-      the transport map via pushforward interpolation / Jacobian pullback rather than
-      reading off $x^*(y) = \arg\min_x\{c(x,y)-\varphi(x)\}$ directly from the
-      c-transform's inner minimization. Whether the kernel's argmin coincides with
-      the map Jacobs' interpolation step produces (same map, or merely an equally
-      valid but different-in-general selection when the argmin is non-unique) is
-      unverified — check against the paper's construction before adding an
-      `int* argmin_out` output, since the two may not be interchangeable.
+- [ ] **Argmin/index output — two separate open questions, both need resolving before
+      implementing.** $x^*(y) = \arg\min_x\{c(x,y)-\varphi(x)\}$ is the discrete
+      **proximal point** of $-\varphi$ (extended by $+\infty$ off $X$) — see
+      [`moreau_proximal.md`](../math/moreau_proximal.md) for the derivation.
+      1. **Non-uniqueness / tie-breaking.** The extended $-\varphi$ is essentially never
+         convex (indicator of a finite set + arbitrary values), so unlike the classical
+         proximal operator, $x^*(y)$ is not guaranteed single-valued — and ties are
+         systematic, not a measure-zero edge case, on regular/lattice inputs (any $y$
+         equidistant from two $x\in X$ with equal $\varphi$). An `int* argmin_out` needs
+         an explicit, documented tie-breaking rule (e.g. lowest index); today's
+         value-only kernel has no need for one since tied $x$'s give the same output
+         value regardless of which the `min()` reduction effectively picks.
+      2. **Match to Matt Jacobs' back-and-forth method** (not the Auction algorithm),
+         the target use case. Jacobs recovers the transport map via pushforward
+         interpolation / Jacobian pullback rather than reading off $x^*(y)$ directly
+         from the c-transform's inner minimization. Whether the kernel's argmin
+         coincides with the map Jacobs' interpolation step produces (same map, or
+         merely an equally valid but different-in-general selection when $x^*(y)$ is
+         non-unique) is unverified — check against the paper's construction before
+         assuming the two are interchangeable.
 - [ ] **float32 validation.** `T=float` compiles but is not numerically validated
       (see [`numerical_stability.md`](../math/numerical_stability.md)); needs its own
       tolerance-scaled test tier before being called supported.
@@ -63,16 +74,27 @@ this file doesn't drift into being the only record of a decision.
       (`quadraticCTransform2DSeparable_launch`); still to do for `quadraticCTransform1D`
       and `quadraticCTransform2D` (naive). The `_launch` declaration is exposed in
       `ctransform.hpp` behind a g++-safe forward declaration of `cudaStream_t`; apply the
-      same header pattern when adding the 1D/2D launch functions.
+      same header pattern when adding the 1D/2D launch functions. Signatures and launch
+      config drafted in [`api.md`](api.md#gpu-launch-layer--1d-and-2d-naive-spec-not-yet-implemented);
+      also flags a pre-existing `int`/`std::size_t` index-width mismatch in
+      `quadraticCTransform1DKernel` worth fixing in the same pass.
 - [ ] **JAX custom-call / FFI integration.** For an exact (non-entropic) GPU-resident
       solver driven by `lax.while_loop`, register the device-pointer launch function
       as an XLA custom call so JAX never touches host memory mid-iteration. Depends
       on the device-pointer-only layer above, not on the pybind11/NumPy binding.
+      **The FFI shim itself lives in the consuming solver repo, not here** — see
+      [`jax_ffi_integration.md`](jax_ffi_integration.md) for the repo boundary, the
+      constraints this places on the launch layer (static shapes, XLA-visible scratch,
+      async/non-throwing error reporting), and a test-coverage gap it surfaces (no
+      existing test calls `_launch` directly on pre-staged device buffers for the
+      naive kernels, once they exist).
 
 ## Testing
 
-- [ ] **Tier 3 (randomized) and Tier 4 (stress/large-scale) suites** — not yet
-      implemented per [`test_strategy.md`](test_strategy.md).
+- [x] **Tier 3 (randomized) and Tier 4 (stress/large-scale) suites** — implemented
+      per [`test_strategy.md`](test_strategy.md) (`test_randomized.cpp`,
+      `test_stress.cpp`); both cover naive and separable 2D kernels against the CPU
+      reference.
 - [x] Tolerance check for the separable kernel specifically: its reduction order
       differs from the naive joint loop (nested min vs. joint min), so add a
       separable-vs-naive comparison in addition to separable-vs-CPU-reference.
