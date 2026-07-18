@@ -36,8 +36,8 @@ __global__ void quadraticCTransform2DKernel (
     // meaning that we're varying faster in y axis
     // => iy1 is a fast-varying (contiguous) index
     // => to have coaleasced access we need to vary accordingly
-    std::size_t iy0 = threadIdx.y + blockDim.y * blockIdx.y;
-    std::size_t iy1 = threadIdx.x + blockDim.x * blockIdx.x;
+    std::size_t iy0 = threadIdx.y + static_cast<std::size_t>(blockDim.y) * blockIdx.y;
+    std::size_t iy1 = threadIdx.x + static_cast<std::size_t>(blockDim.x) * blockIdx.x;
 
     if (iy0 >= grid.ny0 || iy1 >= grid.ny1) return;
 
@@ -59,6 +59,28 @@ __global__ void quadraticCTransform2DKernel (
     }
 
     out[iy0 * grid.ny1 + iy1] = best;
+}
+
+template <typename T>
+void quadraticCTransform2D_launch(
+    const T* dXaxis0, const T* dXaxis1,
+    const T* dYaxis0, const T* dYaxis1,
+    const T* dPhi,
+    T* dOut,
+    Grid2D grid,
+    cudaStream_t stream
+  ) {
+  dim3 threads(16, 16);
+  dim3 blocks(
+      (grid.ny1 + threads.x - 1) / threads.x,
+      (grid.ny0 + threads.y - 1) / threads.y
+      );
+  quadraticCTransform2DKernel<T><<<blocks, threads, 0, stream>>>(
+      dXaxis0, dXaxis1,
+      dYaxis0, dYaxis1,
+      dPhi, dOut, grid
+      );
+  CUDA_CHECK(cudaGetLastError());
 }
 
 template <typename T>
@@ -85,23 +107,16 @@ void quadraticCTransform2D(
     CUDA_CHECK(cudaMemcpy(devPhi.get(), Phi, grid.nx0 * grid.nx1 * sizeof(T), cudaMemcpyHostToDevice));
 
     // call the kernel
-    dim3 threads(16, 16);
-    dim3 blocks(
-        (grid.ny1 + threads.x - 1) / threads.x,
-        (grid.ny0 + threads.y - 1) / threads.y
-        );
-    quadraticCTransform2DKernel<T><<<blocks, threads>>>(
-        devX0.get(), devX1.get(),
-        devY0.get(), devY1.get(),
-        devPhi.get(), devOut.get(), grid
-        );
+    quadraticCTransform2D_launch<T>(devX0.get(), devX1.get(), devY0.get(), devY1.get(),
+        devPhi.get(), devOut.get(), grid, /*stream=*/0);
     
     // check for errors and copy the result
-    CUDA_CHECK(cudaGetLastError());
     CUDA_CHECK(cudaDeviceSynchronize());
 
     CUDA_CHECK(cudaMemcpy(out, devOut.get(), grid.ny0 * grid.ny1 * sizeof(T), cudaMemcpyDeviceToHost));
 }
 
+template void quadraticCTransform2D_launch(const float*, const float*, const float*, const float*, const float*, float*, Grid2D, cudaStream_t);
+template void quadraticCTransform2D_launch(const double*, const double*, const double*, const double*, const double*, double*, Grid2D, cudaStream_t);
 template void quadraticCTransform2D(const float*, const float*, const float*, const float*, const float*, float*, Grid2D);
 template void quadraticCTransform2D(const double*, const double*, const double*, const double*, const double*, double*, Grid2D);

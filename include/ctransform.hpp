@@ -56,6 +56,25 @@ void quadraticCTransform2DSeparable(
 typedef struct CUstream_st* cudaStream_t;
 
 template <typename T>
+void quadraticCTransform1D_launch(
+    const T* dXaxis, const T* dYaxis,     // DEVICE pointers
+    const T* dPhi,
+    T* dOut,
+    Grid1D grid,
+    cudaStream_t stream = 0
+    );
+
+template <typename T>
+void quadraticCTransform2D_launch(
+    const T* dXaxis0, const T* dXaxis1,     // DEVICE pointers
+    const T* dYaxis0, const T* dYaxis1,
+    const T* dPhi,
+    T* dOut,
+    Grid2D grid,
+    cudaStream_t stream = 0
+    );
+
+template <typename T>
 void quadraticCTransform2DSeparable_launch(
     const T* dXaxis0, const T* dXaxis1,     // DEVICE pointers
     const T* dYaxis0, const T* dYaxis1,
