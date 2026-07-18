@@ -64,31 +64,27 @@ this file doesn't drift into being the only record of a decision.
 
 ## Bindings & integration
 
-- [ ] **Python wrapper** per [`python_extention_plan.md`](python_extention_plan.md) —
-      pybind11 or nanobind, `float64` first, after Tier 1–4 tests pass.
-- [ ] **Device-pointer-only launch layer.** Split each host wrapper into (a) a
+- [ ] **Python wrapper — now the active next task**, per
+      [`python_extention_plan.md`](python_extention_plan.md): all four prerequisites
+      (C++ reference, CUDA-vs-reference, Tier 1–4 tests, stable launch-layer API) are
+      met. Two entry points, in build order: (1) NumPy/pybind11-or-nanobind binding,
+      `float64` first; (2) JAX FFI target wrapping the `_launch` functions directly, per
+      [`jax_ffi_integration.md`](jax_ffi_integration.md) — this is the one the actual
+      downstream consumer (a JAX back-and-forth solver) needs, since it runs with zero
+      host round-trip inside `lax.while_loop`. Both now live in *this* repo's `python/`
+      package (revised from an earlier plan that put the FFI shim in the consuming
+      repo) so the solver repo needs no C++ of its own.
+- [x] **Device-pointer-only launch layer.** Split each host wrapper into (a) a
       device-pointer/stream-only launch function with no allocation, copy, or
-      implicit sync, and (b) today's alloc/copy/sync convenience wrapper calling (a).
+      implicit sync, and (b) an alloc/copy/sync convenience wrapper calling (a).
       Needed for any GPU-resident iterative solver that calls the c-transform every
-      iteration without a host round-trip. **Done for 2D separable**
-      (`quadraticCTransform2DSeparable_launch`); still to do for `quadraticCTransform1D`
-      and `quadraticCTransform2D` (naive). The `_launch` declaration is exposed in
-      `ctransform.hpp` behind a g++-safe forward declaration of `cudaStream_t`; apply the
-      same header pattern when adding the 1D/2D launch functions. Signatures and launch
-      config drafted in [`api.md`](api.md#gpu-launch-layer--1d-and-2d-naive-spec-not-yet-implemented);
-      also flags a pre-existing `int`/`std::size_t` index-width mismatch in
-      `quadraticCTransform1DKernel` worth fixing in the same pass.
-- [ ] **JAX custom-call / FFI integration.** For an exact (non-entropic) GPU-resident
-      solver driven by `lax.while_loop`, register the device-pointer launch function
-      as an XLA custom call so JAX never touches host memory mid-iteration. Depends
-      on the device-pointer-only layer above, not on the pybind11/NumPy binding.
-      **The FFI shim itself lives in the consuming solver repo, not here** — see
-      [`jax_ffi_integration.md`](jax_ffi_integration.md) for the repo boundary, the
-      constraints this places on the launch layer (static shapes, XLA-visible scratch,
-      async/non-throwing error reporting), and a test-coverage gap it surfaces (no
-      existing test calls `_launch` directly on pre-staged device buffers for the
-      naive kernels, once they exist).
-
+      iteration without a host round-trip. Done for all three kernels:
+      `quadraticCTransform2DSeparable_launch` (separable), and now
+      `quadraticCTransform1D_launch` / `quadraticCTransform2D_launch` (naive) — see
+      [`api.md`](api.md#gpu-launch-layer--1d-and-2d-naive). Also fixed in the same pass:
+      the `int`/`std::size_t` index-width mismatch in both naive kernels' thread-index
+      computation (now casts to `std::size_t` before the `blockDim * blockIdx` multiply,
+      not just on the final assignment).
 ## Testing
 
 - [x] **Tier 3 (randomized) and Tier 4 (stress/large-scale) suites** — implemented

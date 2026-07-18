@@ -102,7 +102,7 @@ Status legend: **✓ implemented** · **◐ in progress** · **○ planned**.
 | `quadraticCTransform2D` | host wrapper | 2D | ✓ |
 | `quadraticCTransform2DSeparable` | host wrapper | 2D | ✓ |
 | `quadraticCTransform2DSeparable_launch` | launch layer | 2D | ✓ |
-| `quadraticCTransform1D_launch`, `quadraticCTransform2D_launch` | launch layer | 1D/2D | ◐ spec below |
+| `quadraticCTransform1D_launch`, `quadraticCTransform2D_launch` | launch layer | 1D/2D | ✓ |
 | `quadraticCTransform3D…` | kernels + wrappers | 3D | ○ |
 | `quadraticCTransform2DEnvelope` (Felzenszwalb–Huttenlocher O(n)/line) | variant | 2D | ○ |
 | Python bindings | binding | — | ○ |
@@ -181,24 +181,20 @@ two passes, allocated once by the caller and reused across iterations. The corre
 host wrapper `quadraticCTransform2DSeparable` is a thin marshalling shell over this
 function.
 
-### GPU launch layer — 1D and 2D naive (spec, not yet implemented)
+### GPU launch layer — 1D and 2D naive
 
 Same split as the separable case, applied to `quadraticCTransform1D` and
-`quadraticCTransform2D`: each currently does alloc → copy → launch → sync → copy in one
-function ([`ctransform1D_naive.cu`](../../src/ctransform1D_naive.cu),
-[`ctransform2D_naive.cu`](../../src/ctransform2D_naive.cu)). The refactor is mechanical —
-pull the existing `<<<blocks, threads>>>` launch out into a `_launch` function taking
-device pointers and a stream, and no allocation/copy/sync of its own; the host wrapper
-becomes a thin shell that calls it, same pattern as
-[`quadraticCTransform2DSeparable_launch`](#gpu-launch-layer--2d-separable) above. No
+`quadraticCTransform2D`: the host wrapper does alloc → copy → launch → sync → copy;
+the `_launch` function is only the `<<<blocks, threads, 0, stream>>>` call and the
+post-launch `cudaGetLastError` check, with no allocation/copy/sync of its own. No
 scratch buffer is needed here (unlike the separable pass) since each is a single joint
 kernel launch — no intermediate buffer between kernels.
 
 ```cpp
 template <typename T>
 void quadraticCTransform1D_launch(
-    const T* dX,      // DEVICE pointer, source coords,    shape (nx,)
-    const T* dY,      // DEVICE pointer, target coords,    shape (ny,)
+    const T* dXaxis,  // DEVICE pointer, source coords,     shape (nx,)
+    const T* dYaxis,  // DEVICE pointer, target coords,     shape (ny,)
     const T* dPhi,    // DEVICE pointer, source potential,  shape (nx,)
     T* dOut,          // DEVICE pointer, output potential,  shape (ny,)
     Grid1D grid,
@@ -216,18 +212,24 @@ void quadraticCTransform2D_launch(
 );
 ```
 
-Launch configuration to carry over unchanged from the current host wrappers:
+Launch configuration, unchanged from the pre-split host wrappers:
 `quadraticCTransform1D_launch` uses `threads = 256`, `blocks = ceil(ny / 256)`;
 `quadraticCTransform2D_launch` uses `dim3 threads(16, 16)` with blocks sized over
 `(ny1, ny0)` (fast-varying `iy1` mapped to `threadIdx.x` for coalesced output writes, per
 the comment in `quadraticCTransform2DKernel`).
 
-**Review note, not part of the refactor**: `quadraticCTransform1DKernel` indexes with
-`int iy = threadIdx.x + blockDim.x * blockIdx.x`, while `Grid1D::ny` is `std::size_t`.
-This is a pre-existing latent overflow risk (silently wraps if `ny` exceeds `INT_MAX`),
-not introduced by the launch-layer split — worth a one-line fix (`int` → matching
-`std::size_t`/`long` index type) whenever that file is next touched, but out of scope for
-the pure launch/wrapper split.
+Implemented in [`ctransform1D_naive.cu`](../../src/ctransform1D_naive.cu) and
+[`ctransform2D_naive.cu`](../../src/ctransform2D_naive.cu); the corresponding host
+wrappers are thin marshalling shells over these, same pattern as
+[`quadraticCTransform2DSeparable_launch`](#gpu-launch-layer--2d-separable) above. Direct
+`_launch`-on-pre-staged-device-buffers coverage (bypassing the host wrapper) is in
+`tests/test_launch_layer.cu`.
+
+The `int`/`std::size_t` index-width mismatch flagged during this refactor (both
+kernels' `iy`/`iy0`/`iy1` computed the `blockDim * blockIdx` product before promoting to
+`std::size_t`, wrapping in 32-bit space for `ny` beyond `INT_MAX`) is fixed: both
+`quadraticCTransform1DKernel` and `quadraticCTransform2DKernel` now cast to
+`std::size_t` before multiplying.
 
 ---
 
