@@ -49,6 +49,7 @@ add_executable(ctransform_tests
     tests/test_cuda_vs_cpu.cpp
     tests/test_randomized.cpp
     tests/test_stress.cpp
+    tests/test_launch_layer.cu
 )
 target_link_libraries(ctransform_tests
     PRIVATE
