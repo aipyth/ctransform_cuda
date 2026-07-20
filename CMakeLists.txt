@@ -20,6 +20,7 @@ target_compile_features(ctransform_lib
 )
 
 set_target_properties(ctransform_lib PROPERTIES
+    POSITION_INDEPENDENT_CODE ON
     CUDA_STANDARD 20
     CUDA_STANDARD_REQUIRED ON
     CUDA_ARCHITECTURES native
@@ -62,3 +63,16 @@ add_test(NAME ctransform_tests COMMAND ctransform_tests)
 # performance tests
 add_executable(ctransform_perf tests/test_perf.cpp)
 target_link_libraries(ctransform_perf PRIVATE ctransform_lib)
+
+# ------- PYTHON EXTENSION --------
+FetchContent_Declare(pybind11
+  GIT_REPOSITORY https://github.com/pybind/pybind11.git
+  GIT_TAG v2.13.6
+)
+FetchContent_MakeAvailable(pybind11)
+
+pybind11_add_module(ctransform_cuda_py
+  python/src/bindings.cpp
+)
+
+target_link_libraries(ctransform_cuda_py PRIVATE ctransform_lib)
