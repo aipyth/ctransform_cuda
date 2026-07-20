@@ -48,12 +48,15 @@ psi = ct.ctransform_1d(X, Y, phi)
 ### 2D
 
 ```python
-psi = ct.ctransform_2d(Xaxis0, Xaxis1, Yaxis0, Yaxis1, phi)
+psi = ct.ctransform_2d(Xaxis0, Xaxis1, Yaxis0, Yaxis1, phi, method="naive")
 # Xaxis0: np.ndarray shape (nx0,), float64
 # Xaxis1: np.ndarray shape (nx1,), float64
 # Yaxis0: np.ndarray shape (ny0,), float64
 # Yaxis1: np.ndarray shape (ny1,), float64
 # phi:    np.ndarray shape (nx0, nx1), float64, C-contiguous
+# method: "naive" (default, quadraticCTransform2D) or "separable"
+#         (quadraticCTransform2DSeparable) -- same result, dispatches to a different
+#         C++ host wrapper; see separable_ctransform.md for the algorithm difference
 # returns: psi, np.ndarray shape (ny0, ny1), float64
 ```
 

@@ -62,14 +62,62 @@ coupling:
 - **Device-pointer launch layer** (`*_launch`) — no allocation, copy, or
   synchronization; takes device pointers and a `cudaStream_t` and lets the caller's own
   loop (CUDA, or JAX via an XLA custom call) own all three. This is the layer an
-  external solver should call every iteration. **Status: implemented for the 2D
-  separable kernel only** (`quadraticCTransform2DSeparable_launch`); the 1D and naive-2D
-  equivalents are planned (see [`todo.md`](docs/engineering/todo.md)).
+  external solver should call every iteration. **Status: implemented for all three
+  kernels** (`quadraticCTransform1D_launch`, `quadraticCTransform2D_launch`,
+  `quadraticCTransform2DSeparable_launch`).
 
 Full signatures and the layering rationale are in
-[`docs/engineering/api.md`](docs/engineering/api.md). Until the launch layer covers all
-kernels, treat this section as describing the intended integration shape, not a
-complete/stable surface to build against yet.
+[`docs/engineering/api.md`](docs/engineering/api.md).
+
+## Python bindings
+
+A NumPy-facing pybind11 module wraps the 1D and 2D host wrappers; the JAX/XLA FFI target
+described in [`docs/engineering/jax_ffi_integration.md`](docs/engineering/jax_ffi_integration.md)
+is separate, planned work and not part of this binding.
+
+### Environment setup
+
+The compiled module is tied to the exact Python it was built against (the
+`cpython-*-x86_64-linux-gnu` tag in the output filename encodes the ABI + version), so
+build and test with the same interpreter — don't build in one env and `import` from
+another. A dedicated env keeps this isolated from `base`:
+
+```bash
+conda create -n ctransform-dev python=3.13 numpy pytest git -y
+conda activate ctransform-dev
+```
+
+`git` is included deliberately: CMake's `FetchContent` (used for googletest and
+pybind11) shells out to `git clone`, and a minimal freshly created env won't have `git`
+on its `PATH` even if `base` does — this fails with `could not find git for
+clone of ..._-populate` if omitted.
+
+If you switch environments (or created one without `git` and are adding it after the
+fact), reconfigure from a clean build directory — CMake caches the detected Python
+interpreter in `CMakeCache.txt` at first configure and won't pick up a newly activated
+env otherwise:
+
+```bash
+rm -rf build
+```
+
+### Build and test
+
+```bash
+cmake -S . -B build --preset local   # --preset local is required if nvcc isn't on PATH, see Build above
+cmake --build build -j
+```
+
+This produces `ctransform_cuda_py.cpython-*.so` somewhere under `build/`. Test it:
+
+```bash
+pytest python/tests/ -v
+```
+
+`python/tests/conftest.py` locates the built `.so` automatically, so no manual
+`PYTHONPATH` export is needed. See
+[`docs/engineering/python_extention_plan.md`](docs/engineering/python_extention_plan.md)
+for the intended API shape and validation rules.
 
 ## License
 
