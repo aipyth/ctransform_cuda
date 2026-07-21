@@ -1,0 +1,18 @@
+[build-system]
+requires = ["scikit-build-core", "pybind11"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "ctransform_cuda"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = ["numpy"]
+
+[project.optional-dependencies]
+jax = ["jax"]
+
+[tool.scikit-build]
+wheel.packages = ["python/ctransform_cuda"]
+
+[tool.scikit-build.cmake.define]
+CTRANSFORM_BUILD_TESTS = "OFF"
