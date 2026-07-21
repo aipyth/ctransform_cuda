@@ -23,7 +23,10 @@ this file doesn't drift into being the only record of a decision.
       cost specifically. Well-established on CPU; GPU viability is unproven — the
       per-line algorithm is a sequential stack scan, so parallelism must come from
       running one thread (or one block) per line rather than within a line. Worth a
-      standalone spike before committing to it as the default path.
+      standalone spike before committing to it as the default path. Note: the consuming
+      solver's existing pure-JAX Legendre transform (`legendre_along_axis_*`) does not
+      scale to larger grids — the motivating reason this CUDA kernel exists — so a working
+      FH path here is a strict improvement, not a lateral move.
 
 ## Dimensionality
 
@@ -58,6 +61,11 @@ this file doesn't drift into being the only record of a decision.
          merely an equally valid but different-in-general selection when $x^*(y)$ is
          non-unique) is unverified — check against the paper's construction before
          assuming the two are interchangeable.
+
+      This also blocks autodiff through the JAX FFI target (see
+      [`jax_ffi_integration.md`](jax_ffi_integration.md)): by the envelope theorem the
+      gradient of the c-transform value w.r.t. $\varphi$ flows only through $x^*(y)$, so
+      a custom VJP rule needs a resolved, documented argmin before it can be written.
 - [ ] **float32 validation.** `T=float` compiles but is not numerically validated
       (see [`numerical_stability.md`](../math/numerical_stability.md)); needs its own
       tolerance-scaled test tier before being called supported.
@@ -85,12 +93,43 @@ this file doesn't drift into being the only record of a decision.
       the `int`/`std::size_t` index-width mismatch in both naive kernels' thread-index
       computation (now casts to `std::size_t` before the `blockDim * blockIdx` multiply,
       not just on the final assignment).
+## Build & packaging
+
+- [ ] **Two `.so` copies after an editable install.** `cmake --build` writes
+      `_ctransform_ffi...so` into `python/ctransform_cuda/` (via `LIBRARY_OUTPUT_DIRECTORY`),
+      while `pip install -e .` writes a second copy into site-packages. `pytest` imports the
+      first (`conftest.py` inserts `build/` and `python/` onto `sys.path`); downstream repos
+      import the second. So a `cmake --build` alone silently leaves consumers on stale
+      compiled code — currently harmless only because both copies were built from the same
+      source. Accepted deliberately for now; documented in
+      [`development.md`](development.md#5-the-two-so-copies). Two candidate fixes:
+      (a) set `editable.rebuild = true` under `[tool.scikit-build]`, which recompiles on
+      import and collapses the two loops into one, at the cost of a staleness check on every
+      import and compiler output appearing mid-script; or (b) drop the
+      `LIBRARY_OUTPUT_DIRECTORY` property and let `pip install -e .` be the only path that
+      puts the `.so` into the package, which then makes `conftest.py`'s source-tree
+      `sys.path` insert dead weight. (b) is the cleaner end state; (a) is the smaller change.
+- [ ] **Stray comma in `project(ctransform, LANGUAGES CXX CUDA)`** (`CMakeLists.txt:3`) makes
+      the project name literally `ctransform,`. Harmless today — nothing consumes
+      `PROJECT_NAME` — but it would leak into a `find_package`/config-package export.
+
 ## Testing
 
 - [x] **Tier 3 (randomized) and Tier 4 (stress/large-scale) suites** — implemented
       per [`test_strategy.md`](test_strategy.md) (`test_randomized.cpp`,
       `test_stress.cpp`); both cover naive and separable 2D kernels against the CPU
       reference.
+- [ ] **Analytic Hamilton–Jacobi tests.** [`hopf_lax_hj.md`](../math/hopf_lax_hj.md#analytic-test-cases)
+      gives four closed-form solutions of $\partial_t u + \tfrac12\|\nabla u\|^2=0$ that the
+      existing kernel must reproduce, with no kernel changes required — quadratic data
+      (smooth; isolates grid error and gives a convergence-rate probe), $u_0=|x|$ (the
+      Huber function; nonsmooth data, tests the kink at $|y|=t$), $u_0=-|x|$ (systematic
+      two-point ties at $y=0$), and constant $\varphi$ (squared distance transform;
+      future cross-check against Felzenszwalb–Huttenlocher). Stronger than the current
+      CPU-reference comparisons, which validate GPU-vs-CPU agreement but not agreement
+      with the true continuum answer. The $u_0=-|x|$ case is also the sharpest available
+      forcing function for the argmin tie-breaking question above: its *value* is
+      unambiguous, its *argmin* is not.
 - [x] Tolerance check for the separable kernel specifically: its reduction order
       differs from the naive joint loop (nested min vs. joint min), so add a
       separable-vs-naive comparison in addition to separable-vs-CPU-reference.

@@ -71,53 +71,27 @@ Full signatures and the layering rationale are in
 
 ## Python bindings
 
-A NumPy-facing pybind11 module wraps the 1D and 2D host wrappers; the JAX/XLA FFI target
-described in [`docs/engineering/jax_ffi_integration.md`](docs/engineering/jax_ffi_integration.md)
-is separate, planned work and not part of this binding.
+Two modules, both under [`python/`](python/):
 
-### Environment setup
-
-The compiled module is tied to the exact Python it was built against (the
-`cpython-*-x86_64-linux-gnu` tag in the output filename encodes the ABI + version), so
-build and test with the same interpreter — don't build in one env and `import` from
-another. A dedicated env keeps this isolated from `base`:
+- **`ctransform_cuda`** — NumPy-facing pybind11 wrapper around the 1D and 2D host
+  wrappers. Copies host↔device on every call.
+- **`ctransform_cuda.jax`** — JAX/XLA FFI target wrapping the `*_launch` layer directly,
+  so it runs GPU-resident inside `jit`/`lax.while_loop` with no host round-trip. This is
+  the one a downstream solver wants. Design notes:
+  [`docs/engineering/jax_ffi_integration.md`](docs/engineering/jax_ffi_integration.md).
 
 ```bash
 conda create -n ctransform-dev python=3.13 numpy pytest git -y
 conda activate ctransform-dev
-```
-
-`git` is included deliberately: CMake's `FetchContent` (used for googletest and
-pybind11) shells out to `git clone`, and a minimal freshly created env won't have `git`
-on its `PATH` even if `base` does — this fails with `could not find git for
-clone of ..._-populate` if omitted.
-
-If you switch environments (or created one without `git` and are adding it after the
-fact), reconfigure from a clean build directory — CMake caches the detected Python
-interpreter in `CMakeCache.txt` at first configure and won't pick up a newly activated
-env otherwise:
-
-```bash
-rm -rf build
-```
-
-### Build and test
-
-```bash
-cmake -S . -B build --preset local   # --preset local is required if nvcc isn't on PATH, see Build above
-cmake --build build -j
-```
-
-This produces `ctransform_cuda_py.cpython-*.so` somewhere under `build/`. Test it:
-
-```bash
+pip install scikit-build-core pybind11
+CUDACXX=/path/to/nvcc pip install --no-build-isolation -e .
 pytest python/tests/ -v
 ```
 
-`python/tests/conftest.py` locates the built `.so` automatically, so no manual
-`PYTHONPATH` export is needed. See
-[`docs/engineering/python_extention_plan.md`](docs/engineering/python_extention_plan.md)
-for the intended API shape and validation rules.
+**Read [`docs/engineering/development.md`](docs/engineering/development.md) before the
+first build** — it explains why each flag above is needed, the difference between the
+CMake and pip build loops (they produce *separate* copies of the compiled extension), and
+has a troubleshooting table for the common failures.
 
 ## License
 

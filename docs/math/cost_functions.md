@@ -48,7 +48,7 @@ The squared Euclidean cost has several favorable mathematical properties:
 
 - **Convexity in $x$**: for fixed $y$, $c(x,y)$ is convex and strongly convex in $x$
 - **Brenier's theorem**: under this cost, the optimal transport map (when it exists) is the gradient of a convex function; this connects c-concave potentials to convex functions
-- **Decomposability**: in 2D with axis-separated grids, the cost splits as $\tfrac{1}{2} d_0^2 + \tfrac{1}{2} d_1^2$, which the current kernel exploits only by loading $y_0$ and $y_1$ into registers independently — see [`separable_ctransform.md`](separable_ctransform.md) for the algorithmic (not just register-level) exploitation of this property, planned but not yet implemented
+- **Decomposability**: in 2D with axis-separated grids, the cost splits as $\tfrac{1}{2} d_0^2 + \tfrac{1}{2} d_1^2$, which the current kernel exploits only by loading $y_0$ and $y_1$ into registers independently — see [`separable_ctransform.md`](separable_ctransform.md) for the algorithmic (not just register-level) exploitation of this property, now implemented in `src/ctransform2D_separable.cu`. Note that separability is a property of *this* cost specifically: it is lost under path-constrained/geodesic costs, which removes the separable kernel as an option — see [`hopf_lax_hj.md`](hopf_lax_hj.md#where-the-correspondence-stops)
 - **Smoothness**: $c$ is $C^\infty$, which simplifies analytical gradient checks
 
 ---
@@ -76,5 +76,6 @@ The following cost functions are mathematically interesting for c-transform rese
 | Lp | $c(x,y) = \|x-y\|_p^p / p$ | Generalizes squared Euclidean ($p=2$) |
 | Separable convex | $c(x,y) = \sum_i f(x_i - y_i)$ | Decomposable; exploitable in axis-separated grids |
 | Ground metric | $c(x,y) = d(x,y)^2$ on Riemannian manifold | Requires geometry-specific implementation |
+| Geodesic (obstacles) | $c(x,y) = d_\Omega(x,y)^2/2$ in a domain $\Omega$ with obstacles | The path-constrained case; **not separable**, so neither the separable kernel nor Felzenszwalb–Huttenlocher applies. Also requires computing $d_\Omega$ by a separate eikonal solver. See [`hopf_lax_hj.md`](hopf_lax_hj.md#where-the-correspondence-stops) |
 
 Adding a new cost requires a new kernel variant; the existing template parameter `T` only controls precision, not cost structure.

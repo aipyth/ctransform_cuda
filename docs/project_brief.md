@@ -16,6 +16,16 @@ point set. See [`docs/math/moreau_proximal.md`](math/moreau_proximal.md) for the
 identity and its caveats (non-uniqueness of the argmin, grid-discretization error when
 approximating a continuous objective).
 
+**Second equivalent framing.** The same operator is the **Hopf–Lax solution operator**
+for the Hamilton–Jacobi equation $\partial_t u + \tfrac12\|\nabla u\|^2 = 0$: one call
+advances initial data $u_0=-\varphi$ to time $t$, exactly in time (Hopf–Lax is a
+representation formula, not a time discretization), with the Moreau scale $\lambda$
+playing the role of $t$. See [`docs/math/hopf_lax_hj.md`](math/hopf_lax_hj.md) for the
+dictionary, four analytic test cases with closed-form solutions, and — importantly — the
+boundaries of the correspondence: obstacles that constrain *paths* (rather than merely
+forbidding states) make the effective cost geodesic and therefore non-separable, which
+removes both of this library's sub-quadratic acceleration routes.
+
 ---
 
 ## Formulation in scope
@@ -57,8 +67,18 @@ The following are explicitly **not** part of this project:
 - Continuous formulations
 - Dual ascent or iterative c-conjugate computation
 - W₂ Wasserstein distance computation
-- Python bindings (planned future work; see [`docs/engineering/python_extention_plan.md`](engineering/python_extention_plan.md))
 - Cost functions other than squared Euclidean
+- Hamilton–Jacobi / HJB / mean-field-game **solvers**. The kernel is the Hopf–Lax
+  solution operator for one such equation (see
+  [`docs/math/hopf_lax_hj.md`](math/hopf_lax_hj.md)), and that identity is documented
+  here because it yields analytic tests and clarifies the roadmap — but time-stepping
+  loops, boundary/obstacle handling, coupled forward–backward systems, and
+  position-dependent Hamiltonians belong to a consuming solver, not to this library.
+
+**No longer out of scope:** Python bindings, previously listed here as future work, are
+implemented — a NumPy/pybind11 module and a JAX FFI target, both under `python/`. See
+[`docs/engineering/python_extention_plan.md`](engineering/python_extention_plan.md) and
+[`docs/engineering/jax_ffi_integration.md`](engineering/jax_ffi_integration.md).
 
 ---
 

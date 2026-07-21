@@ -32,11 +32,17 @@ The library is organized in layers, from lowest (device compute) to highest
 4. **CPU reference** (`…CPU…`). Serial, single-threaded implementations used to validate
    the GPU path in tests. Not intended for performance.
 
+5. **Python bindings.** Two entry points over the layers above: a NumPy/pybind11 module
+   wrapping the host convenience wrappers (layer 3), and a JAX/XLA FFI target wrapping the
+   launch layer (layer 2) so JAX code can call the kernels GPU-resident inside
+   `jit`/`lax.while_loop`. See [`jax_ffi_integration.md`](jax_ffi_integration.md) and
+   [`python_extention_plan.md`](python_extention_plan.md).
+
 **Design rule.** The mathematics of a given transform lives in exactly one place — its
 kernels plus its launch layer. A host convenience wrapper is only marshalling
-(allocate / copy / synchronize) and must not duplicate compute logic. Splitting each host
-wrapper into a launch function plus a thin convenience wrapper is tracked in
-[`todo.md`](todo.md).
+(allocate / copy / synchronize) and must not duplicate compute logic. The split of every
+host wrapper into a launch function plus a thin convenience wrapper is complete for all
+three kernels.
 
 Data is represented as **axis-separated tensor-product grids** in **row-major** order; see
 [`memory_layout.md`](memory_layout.md). Full 2D coordinate pairs are never materialised.
@@ -105,7 +111,10 @@ Status legend: **✓ implemented** · **◐ in progress** · **○ planned**.
 | `quadraticCTransform1D_launch`, `quadraticCTransform2D_launch` | launch layer | 1D/2D | ✓ |
 | `quadraticCTransform3D…` | kernels + wrappers | 3D | ○ |
 | `quadraticCTransform2DEnvelope` (Felzenszwalb–Huttenlocher O(n)/line) | variant | 2D | ○ |
-| Python bindings | binding | — | ○ |
+| NumPy/pybind11 module (`ctransform_cuda`) | binding | 1D/2D | ✓ |
+| JAX FFI targets (`ctransform_cuda.jax`), `f64` | binding | 1D/2D | ✓ |
+| JAX FFI targets, `f32` | binding | — | ○ |
+| Custom VJP/JVP for the FFI targets (autodiff) | binding | — | ○ |
 
 Planned items and their rationale are tracked in [`todo.md`](todo.md).
 
@@ -181,6 +190,12 @@ two passes, allocated once by the caller and reused across iterations. The corre
 host wrapper `quadraticCTransform2DSeparable` is a thin marshalling shell over this
 function.
 
+Note the parameter order: `dOut` precedes `dScratchG`, and both are `T*`, so transposing
+them compiles silently. It becomes an out-of-bounds write whenever `nx0 > ny0` — see the
+regression test noted in
+[`jax_ffi_integration.md`](jax_ffi_integration.md#testing-implication). Callers supplying
+scratch from JAX get it from `ffi::ScratchAllocator` rather than owning it directly.
+
 ### GPU launch layer — 1D and 2D naive
 
 Same split as the separable case, applied to `quadraticCTransform1D` and
@@ -232,6 +247,31 @@ kernels' `iy`/`iy0`/`iy1` computed the `blockDim * blockIdx` product before prom
 `std::size_t` before multiplying.
 
 ---
+
+## Python interface
+
+Two modules, both wrapping the C++ layers above rather than reimplementing anything. Full
+details in [`python_extention_plan.md`](python_extention_plan.md) (NumPy) and
+[`jax_ffi_integration.md`](jax_ffi_integration.md) (JAX); build instructions in
+[`development.md`](development.md).
+
+| Python entry point | Wraps | C++ layer |
+|---|---|---|
+| `ctransform_cuda.ctransform_1d(X, Y, phi)` | `quadraticCTransform1D` | host wrapper |
+| `ctransform_cuda.ctransform_2d(Xaxis0, Xaxis1, Yaxis0, Yaxis1, phi)` | `quadraticCTransform2D` | host wrapper |
+| `ctransform_cuda.jax.ctransform_1d(X, Y, phi)` | `quadraticCTransform1D_launch` | launch layer |
+| `ctransform_cuda.jax.ctransform_2d(Xaxis0, Xaxis1, Yaxis0, Yaxis1, phi)` | `quadraticCTransform2D_launch` | launch layer |
+| `ctransform_cuda.jax.ctransform_2d_separable(Xaxis0, Xaxis1, Yaxis0, Yaxis1, phi)` | `quadraticCTransform2DSeparable_launch` | launch layer |
+
+The NumPy module copies host↔device on every call and is fine for scripts and notebooks.
+The `jax` module is the one an iterative GPU-resident solver should use: it is traceable,
+runs inside `jit`/`lax.while_loop`, and performs no host round-trip. `float64` only —
+callers must set `jax.config.update("jax_enable_x64", True)`, since JAX defaults to
+`float32` and no `f32` target is registered.
+
+Neither module is differentiable: XLA custom calls are opaque to JAX autodiff without a
+registered VJP/JVP rule, which in turn requires the unresolved argmin/tie-breaking question
+in [`todo.md`](todo.md).
 
 ## Supported types
 

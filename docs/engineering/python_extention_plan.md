@@ -142,6 +142,37 @@ Both require the CUDA device code to be compiled into a static library first, wi
 
 Planned approach: `scikit-build-core` with `pyproject.toml` for pip-installable package. The GPU dependency means the wheel is platform- and CUDA-version-specific; no general PyPI upload is planned.
 
+### Distribution: what would have to change first
+
+Recorded so the blockers aren't re-derived later. The near-term need — one downstream
+solver repo, same author — is fully served by an editable install (`pip install -e .`)
+or a git-URL install (`pip install git+https://…`); neither requires any of the below.
+PyPI only becomes worth it once there is a consumer who can't build from source.
+
+Three things stand between the current build and a distributable binary wheel:
+
+1. **`CUDA_ARCHITECTURES native`** (`CMakeLists.txt`) compiles for *the building
+   machine's* GPU only — correct for development, unusable in a wheel. A distributable
+   build needs an explicit fat-binary arch list plus PTX for forward compatibility on
+   architectures newer than the toolkit knows about.
+2. **jaxlib ABI coupling.** `_ctransform_ffi` compiles against jaxlib's bundled headers,
+   located at configure time by querying the interpreter's installed `jaxlib`. A wheel
+   must pin a supported jaxlib range and track XLA FFI ABI changes across it — the
+   NumPy binding (`ctransform_cuda_py`) has no such coupling and could ship
+   independently if the two were ever split.
+3. **CUDA-major-version fan-out.** The usual consequence of 1–2: one wheel per supported
+   CUDA major version, the pattern jaxlib and cupy both follow.
+
+**Source distribution (sdist) sidesteps all three** — the user compiles at install time,
+so `native` and the local jaxlib are both correct by construction. The cost is requiring
+`nvcc` and a CUDA toolkit on the installing machine, which is a reasonable assumption
+for this library's audience. If PyPI ever happens, sdist-only is the recommended first
+step.
+
+Note also that the distribution name in `pyproject.toml` is independent of the import
+name, so a future rename of the *package* does not force a rename of `import
+ctransform_cuda` — that decision can stay open at no cost.
+
 Directory layout (future), now including the JAX FFI module alongside the NumPy binding
 (see [`jax_ffi_integration.md`](jax_ffi_integration.md)):
 ```
