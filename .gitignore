@@ -6,5 +6,7 @@
 *.fatbin
 
 build/
+*.so
+__pycache__/
 
 CMakeUserPresets.json
