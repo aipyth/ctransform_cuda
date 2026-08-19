@@ -19,6 +19,7 @@ Read these files first:
 - [`docs/engineering/cuda_cpp_architecture.md`](engineering/cuda_cpp_architecture.md)
 - [`docs/engineering/separable_kernel_spec.md`](engineering/separable_kernel_spec.md)
 - [`docs/engineering/memory_layout.md`](engineering/memory_layout.md)
+- [`docs/engineering/performance_roadmap.md`](engineering/performance_roadmap.md)
 - [`docs/engineering/test_strategy.md`](engineering/test_strategy.md)
 - [`docs/engineering/python_extention_plan.md`](engineering/python_extention_plan.md)
 - [`docs/engineering/jax_ffi_integration.md`](engineering/jax_ffi_integration.md)
