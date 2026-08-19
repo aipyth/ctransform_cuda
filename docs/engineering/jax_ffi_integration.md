@@ -145,9 +145,16 @@ of JAX.
   This is what lets the consuming solver write `jax.vmap(c_transform)` over its stack of
   measures. `"sequential"` batches over *all* arguments and handles the mixed
   batched/unbatched case (the solver batches only `phi`, closing over the shared coordinate
-  axes) by broadcasting internally. If the *B* launches ever dominate, the alternative is
-  native batching inside the handler — read *B* from `phi.dimensions()[0]` and issue *B*
-  `_launch` calls, keeping it a single async FFI call; deferred until benchmarks demand it.
+  axes) by broadcasting internally. The cost is that `lax.map` is a genuine sequential loop:
+  the *B* grids are launched back to back and each is sized for one transform, so a batch
+  that would have filled the device is instead *B* under-filled launches plus *B* crossings
+  of the custom-call boundary. Native batching inside the handler — read *B* from
+  `phi.dimensions()[0]`, thread it through `_launch` onto `gridDim.z` as one grid, and switch
+  the wrapper to `vmap_method="broadcast_all"` — replaces that with a single call and a
+  single launch per pass. **This is now the recommended path** rather than a contingency; the
+  end-to-end design (batch conventions for `phi`/out/scratch, the `ScratchAllocator` sizing
+  change, the `ShapeDtypeStruct` change) is written out in
+  [`performance_roadmap.md`](performance_roadmap.md) §2.1.
 - **No automatic differentiation through the custom call**, by default. XLA custom calls
   are opaque to JAX's autodiff unless a custom VJP/JVP rule is also registered — a
   separate, nontrivial piece of work. **Confirmed not needed** for the current consuming
@@ -213,8 +220,8 @@ dummy result to construct and discard at the call site.
 `_launch` directly on pre-staged device buffers, no host wrapper involved — so the C++ side
 of this contract is covered independently of Python.
 
-The Python-side coverage is `python/tests/test_jax_ffi.py`, eight tests against a NumPy
-reference at `atol=1e-12`. Four properties it checks that are specific to the FFI layer
+The Python-side coverage is `python/tests/test_jax_ffi.py`, ten tests against a NumPy
+reference at `atol=1e-12`. Five properties it checks that are specific to the FFI layer
 rather than to the mathematics:
 
 - **Eager and under `jit`, separately.** Outside `jit` JAX dispatches eagerly; inside, XLA
@@ -230,6 +237,10 @@ rather than to the mathematics:
   rather than merely wrong values.
 - **Explicit output-shape assertions**, since `assert_allclose` broadcasts and would let
   some shape errors pass.
+- **`vmap` over a stack of `phi`, plain and under `jit`.** Exercises the
+  `vmap_method="sequential"`/`lax.map` fallback described above end to end (batched
+  results checked against a Python loop over the unbatched call) — a change to
+  `vmap_method` should be caught here if it silently changes results.
 
 Bounds correctness of the separable path has been verified under
 `compute-sanitizer --tool memcheck` (0 errors). That result is meaningful for out-of-bounds
