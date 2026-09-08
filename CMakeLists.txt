@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.26)
 
-project(ctransform, LANGUAGES CXX CUDA)
+project(ctransform LANGUAGES CXX CUDA)
 
 add_library(ctransform_lib STATIC
   src/ctransform1D_naive.cu
@@ -73,11 +73,34 @@ target_link_libraries(ctransform_perf PRIVATE ctransform_lib)
 endif()
 
 # ------- PYTHON EXTENSION --------
-FetchContent_Declare(pybind11
-  GIT_REPOSITORY https://github.com/pybind/pybind11.git
-  GIT_TAG v2.13.6
+find_package(Python3 COMPONENTS Interpreter Development.Module REQUIRED)
+
+# Make pybind11 use modern FindPython instead of its legacy FindPythonLibsNew
+# (which sets policy CMP0148 to OLD and warns).
+set(PYBIND11_FINDPYTHON ON)
+
+# Prefer the pip-installed pybind11 (its CMake config lives in site-packages);
+# fall back to fetching it so a machine without it still configures.
+execute_process(
+  COMMAND ${Python3_EXECUTABLE} -m pybind11 --cmakedir
+  OUTPUT_VARIABLE PYBIND11_CMAKE_DIR
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+  RESULT_VARIABLE PYBIND11_CMAKE_DIR_RESULT
+  ERROR_QUIET
 )
-FetchContent_MakeAvailable(pybind11)
+if(PYBIND11_CMAKE_DIR_RESULT EQUAL 0)
+  list(APPEND CMAKE_PREFIX_PATH "${PYBIND11_CMAKE_DIR}")
+endif()
+
+find_package(pybind11 CONFIG QUIET)
+if(NOT pybind11_FOUND)
+  message(STATUS "pybind11 not installed; fetching v3.1.0")
+  FetchContent_Declare(pybind11
+    GIT_REPOSITORY https://github.com/pybind/pybind11.git
+    GIT_TAG v3.1.0
+  )
+  FetchContent_MakeAvailable(pybind11)
+endif()
 
 pybind11_add_module(ctransform_cuda_py
   python/src/bindings.cpp
@@ -86,23 +109,37 @@ pybind11_add_module(ctransform_cuda_py
 target_link_libraries(ctransform_cuda_py PRIVATE ctransform_lib)
 
 execute_process(
-  COMMAND python3 -c "import jaxlib, os; print(os.path.join(os.path.dirname(jaxlib.__file__), 'include'))"
+  COMMAND ${Python3_EXECUTABLE} -c "import jaxlib, os; print(os.path.join(os.path.dirname(jaxlib.__file__), 'include'))"
   OUTPUT_VARIABLE JAXLIB_INCLUDE_DIR
   OUTPUT_STRIP_TRAILING_WHITESPACE
+  RESULT_VARIABLE JAXLIB_INCLUDE_DIR_RESULT
+  ERROR_QUIET
 )
 
-pybind11_add_module(_ctransform_ffi python/src/ffi_handlers.cpp)
-target_include_directories(_ctransform_ffi
-  PRIVATE
-    ${JAXLIB_INCLUDE_DIR}
-)
-target_link_libraries(_ctransform_ffi
-  PRIVATE
-    ctransform_lib
-)
-set_target_properties(_ctransform_ffi PROPERTIES
-  LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/python/ctransform_cuda
-)
+# Without jaxlib the include path above is empty and _ctransform_ffi fails much
+# later with a confusing "xla/ffi/api/ffi.h: No such file or directory", so skip
+# the target and say why instead.
+if(NOT JAXLIB_INCLUDE_DIR_RESULT EQUAL 0)
+  message(STATUS
+    "jaxlib not importable from ${Python3_EXECUTABLE}; skipping the _ctransform_ffi "
+    "target. Install it (pip install \"jax[cuda12]\") or point CMake at the right "
+    "interpreter with -DPython3_EXECUTABLE=...")
+else()
+  pybind11_add_module(_ctransform_ffi python/src/ffi_handlers.cpp)
+  # SYSTEM: jaxlib's XLA FFI headers emit -Wattributes and -Wreturn-type warnings
+  # that are not ours to fix.
+  target_include_directories(_ctransform_ffi
+    SYSTEM PRIVATE
+      ${JAXLIB_INCLUDE_DIR}
+  )
+  target_link_libraries(_ctransform_ffi
+    PRIVATE
+      ctransform_lib
+  )
+  set_target_properties(_ctransform_ffi PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/python/ctransform_cuda
+  )
+  install(TARGETS _ctransform_ffi DESTINATION ctransform_cuda)
+endif()
 
 install(TARGETS ctransform_cuda_py DESTINATION .)
-install(TARGETS _ctransform_ffi DESTINATION ctransform_cuda)
