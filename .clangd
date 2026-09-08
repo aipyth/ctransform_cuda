@@ -1,0 +1,21 @@
+CompileFlags:
+  CompilationDatabase: build
+  Add:
+    - --cuda-path=/usr/local/cuda
+    - --no-cuda-version-check
+  Remove:
+    - -forward-unknown-to-host-compiler
+    - --generate-code=*
+    - -gencode*
+    - --expt-*
+    - --extended-lambda
+    - -Xcompiler=*
+    - -Xcudafe=*
+    - -rdc=*
+
+
+---
+If:
+  PathMatch: .*\.cuh
+CompileFlags:
+  Add: [-xcuda]
