@@ -24,7 +24,7 @@ __global__ void separablePass1Kernel (
 
   for (std::size_t ix1 = 0; ix1 < grid.nx1; ++ix1) {
       dx1 = dXaxis1[ix1] - yi1;
-      best = min(best, 0.5 * dx1 * dx1 - dPhi[ix0 * grid.nx1 + ix1]);
+      best = min(best, T(0.5) * dx1 * dx1 - dPhi[ix0 * grid.nx1 + ix1]);
   }
 
   dScratchG[ix0 * grid.ny1 + iy1] = best;
@@ -49,7 +49,7 @@ __global__ void separablePass2Kernel (
 
   for (std::size_t ix0 = 0; ix0 < grid.nx0; ++ix0) {
       dx0 = dXaxis0[ix0] - yi0;
-      best = min(best, 0.5 * dx0 * dx0
+      best = min(best, T(0.5) * dx0 * dx0
           + dScratchG[ix0 * grid.ny1 + iy1]);
   }
 

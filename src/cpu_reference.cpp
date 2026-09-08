@@ -22,7 +22,7 @@ void quadraticCTransformCPU1D (
 
         for (std::size_t i = 0; i < grid.nx; i++) {
             T dx = Xaxis[i] - yi;
-            T candidate = 0.5 * dx * dx - Phi[i];
+            T candidate = T(0.5) * dx * dx - Phi[i];
             best = std::fmin(best, candidate);
         }
 
@@ -55,7 +55,7 @@ void quadraticCTransformCPU2D (
                 d0 = Xaxis0[ix0] - yi0;
                 for (std::size_t ix1 = 0; ix1 < grid.nx1; ix1++) {
                     d1 = Xaxis1[ix1] - yi1;
-                    candidate = 0.5 * (d0 * d0 + d1 * d1) - Phi[ix0 * grid.nx1 + ix1];
+                    candidate = T(0.5) * (d0 * d0 + d1 * d1) - Phi[ix0 * grid.nx1 + ix1];
                     best = std::fmin(best, candidate);
                 }
             }

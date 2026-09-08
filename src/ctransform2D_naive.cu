@@ -52,7 +52,7 @@ __global__ void quadraticCTransform2DKernel (
             d1 = Xaxis1[ix1] - yi1;
             best = min(
                 best,
-                0.5 * (d0 * d0 + d1 * d1)
+                T(0.5) * (d0 * d0 + d1 * d1)
                     - Phi[ix0 * grid.nx1 + ix1]
             );
         }

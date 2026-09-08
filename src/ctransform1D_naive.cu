@@ -38,7 +38,7 @@ __global__ void quadraticCTransform1DKernel (
 
   for (std::size_t ix = 0; ix < grid.nx; ix++) {
       dx = Xaxis[ix] - yi;
-      candidate = 0.5 * dx * dx - Phi[ix];
+      candidate = T(0.5) * dx * dx - Phi[ix];
       best = min(best, candidate);
   }
 
