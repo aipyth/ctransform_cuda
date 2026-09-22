@@ -66,7 +66,7 @@ void quadraticCTransform2DSeparable_launch(
     Grid2D grid,
     cudaStream_t stream
   ) {
-  dim3 threads(16, 16);
+  dim3 threads(32, 8);
   // PASS 1 sized over (ny1, nx0)
   dim3 blocks1(
       (grid.ny1 + threads.x - 1) / threads.x,

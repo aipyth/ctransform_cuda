@@ -70,7 +70,7 @@ void quadraticCTransform2D_launch(
     Grid2D grid,
     cudaStream_t stream
   ) {
-  dim3 threads(16, 16);
+  dim3 threads(32, 8);
   dim3 blocks(
       (grid.ny1 + threads.x - 1) / threads.x,
       (grid.ny0 + threads.y - 1) / threads.y
