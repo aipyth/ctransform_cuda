@@ -1,8 +1,5 @@
 #include <cuda_runtime.h>
 
-#include <iostream>
-#include <vector>
-
 #include "print_utils.hpp"
 #include "cuda_utils.cuh"
 
