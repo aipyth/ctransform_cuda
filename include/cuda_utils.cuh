@@ -1,12 +1,16 @@
 #pragma once
 #include <cuda_runtime.h>
 #include <cstddef>
-#include <cstdio>
+#include <stdexcept>
+#include <string>
 
 
-#define CUDA_CHECK(x) do { cudaError_t e = (x); \
-    if (e != cudaSuccess) fprintf(stderr, "%s:%d %s\n",\
-            __FILE__, __LINE__, cudaGetErrorString(e)); } while(0)
+#define CUDA_CHECK(x) do { cudaError_t _e = (x); \
+    if (_e != cudaSuccess) \
+        throw std::runtime_error( \
+            std::string(__FILE__) + ":" + std::to_string(__LINE__) \
+            + " " + cudaGetErrorString(_e)); \
+    } while(0)
 
 
 template <typename T>

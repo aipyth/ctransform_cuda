@@ -3,6 +3,8 @@
 #include "ctransform.hpp"
 #include <cstddef>
 #include <optional>
+#include <exception>
+#include <string>
 
 namespace ffi = xla::ffi;
 namespace py = pybind11;
@@ -19,9 +21,15 @@ ffi::Error CTransform1DHandler_f64(
     static_cast<std::size_t>(Y.dimensions()[0])
   };
 
-  quadraticCTransform1D_launch(
+  try {
+    quadraticCTransform1D_launch(
       X.typed_data(), Y.typed_data(),
       phi.typed_data(), out->typed_data(), grid, stream);
+  } catch (const std::exception& e) {
+    return ffi::Error::Internal(std::string("ctransform: ") + e.what());
+  } catch (...) {
+    return ffi::Error::Internal("ctransform: unknown exception");
+  }
 
   return ffi::Error::Success();
 }
@@ -42,10 +50,16 @@ ffi::Error CTransform2DHandler_f64(
     static_cast<std::size_t>(Yaxis1.dimensions()[0])
   };
 
-  quadraticCTransform2D_launch(
+  try {
+    quadraticCTransform2D_launch(
       Xaxis0.typed_data(), Xaxis1.typed_data(),
       Yaxis0.typed_data(), Yaxis1.typed_data(),
       phi.typed_data(), out->typed_data(), grid, stream);
+  } catch (const std::exception& e) {
+    return ffi::Error::Internal(std::string("ctransform: ") + e.what());
+  } catch (...) {
+    return ffi::Error::Internal("ctransform: unknown exception");
+  }
 
   return ffi::Error::Success();
 }
@@ -73,11 +87,17 @@ ffi::Error CTransform2DSeparableHandler_f64(
   }
   double* dScratchG = static_cast<double*>(*maybeG);
 
-  quadraticCTransform2DSeparable_launch(
+  try {
+    quadraticCTransform2DSeparable_launch(
       Xaxis0.typed_data(), Xaxis1.typed_data(),
       Yaxis0.typed_data(), Yaxis1.typed_data(),
       phi.typed_data(), out->typed_data(),
       dScratchG, grid, stream);
+  } catch (const std::exception& e) {
+    return ffi::Error::Internal(std::string("ctransform: ") + e.what());
+  } catch (...) {
+    return ffi::Error::Internal("ctransform: unknown exception");
+  }
 
   return ffi::Error::Success();
 }
