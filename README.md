@@ -1,5 +1,7 @@
 # ctransform_cuda
 
+![ctransform_cuda — GPU foundation for variational computing](docs/ctransform-banner.webp)
+
 A CUDA C++ library that computes the **discrete c-transform** — for the squared-Euclidean cost, exactly the grid-sampled **Moreau envelope**. It's the primitive behind optimal-transport duality (Kantorovich potentials, Hopf–Lax updates for Hamilton–Jacobi equations) and, more generally, any proximal-gradient / ADMM / operator-splitting method that needs a Moreau-envelope evaluation over a finite point set. See [`docs/`](docs/index.md) for full documentation, starting with [`docs/math/moreau_proximal.md`](docs/math/moreau_proximal.md) for the exact identity.
 
 ## Build
