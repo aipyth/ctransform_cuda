@@ -35,3 +35,20 @@ private:
     T* ptr_ = nullptr;
     std::size_t count_ = 0;
 };
+
+class CudaStream {
+public:
+  CudaStream() {
+    CUDA_CHECK(cudaStreamCreateWithFlags(&s_, cudaStreamNonBlocking));
+  }
+
+  CudaStream(const CudaStream&) = delete;
+  CudaStream& operator=(const CudaStream&) = delete;
+
+  ~CudaStream() { if (s_) { cudaStreamDestroy(s_); } }
+
+  cudaStream_t get() const { return s_; }
+
+private:
+  cudaStream_t s_ = nullptr;
+};

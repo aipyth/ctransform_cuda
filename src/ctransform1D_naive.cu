@@ -66,24 +66,22 @@ void quadraticCTransform1D(
     T* out,
     Grid1D grid
 ) {
+    CudaStream s;
     DeviceBuffer<T> devXaxis(grid.nx);
     DeviceBuffer<T> devYaxis(grid.ny);
     DeviceBuffer<T> devPhi(grid.nx);
     DeviceBuffer<T> devOut(grid.ny);
 
-    CUDA_CHECK(cudaMemcpy(devXaxis.get(), Xaxis, grid.nx * sizeof(T), cudaMemcpyHostToDevice));
-    CUDA_CHECK(cudaMemcpy(devYaxis.get(), Yaxis, grid.ny * sizeof(T), cudaMemcpyHostToDevice));
-    CUDA_CHECK(cudaMemcpy(devPhi.get(), phi, grid.nx * sizeof(T), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpyAsync(devXaxis.get(), Xaxis, grid.nx * sizeof(T), cudaMemcpyHostToDevice, s.get()));
+    CUDA_CHECK(cudaMemcpyAsync(devYaxis.get(), Yaxis, grid.ny * sizeof(T), cudaMemcpyHostToDevice, s.get()));
+    CUDA_CHECK(cudaMemcpyAsync(devPhi.get(), phi, grid.nx * sizeof(T), cudaMemcpyHostToDevice, s.get()));
 
-    // call the kernel
     quadraticCTransform1D_launch<T>(
-        devXaxis.get(), devYaxis.get(), devPhi.get(), devOut.get(), grid, /*stream=*/0
+        devXaxis.get(), devYaxis.get(), devPhi.get(), devOut.get(), grid, /*stream=*/s.get()
         );
     
-    // check for errors and copy the result
-    CUDA_CHECK(cudaDeviceSynchronize());
-
-    CUDA_CHECK(cudaMemcpy(out, devOut.get(), grid.ny * sizeof(T), cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpyAsync(out, devOut.get(), grid.ny * sizeof(T), cudaMemcpyDeviceToHost, s.get()));
+    CUDA_CHECK(cudaStreamSynchronize(s.get()));
 }
 
 template void quadraticCTransform1D_launch(const double*, const double*, const double*, double*, Grid1D, cudaStream_t);

@@ -95,6 +95,7 @@ void quadraticCTransform2DSeparable(
     T* out,
     Grid2D grid
     ) {
+    CudaStream s;
     DeviceBuffer<T> devX0(grid.nx0);
     DeviceBuffer<T> devX1(grid.nx1);
     DeviceBuffer<T> devY0(grid.ny0);
@@ -103,22 +104,21 @@ void quadraticCTransform2DSeparable(
     DeviceBuffer<T> devG(grid.nx0 * grid.ny1);      // scratch g, device-only
     DeviceBuffer<T> devOut(grid.ny0 * grid.ny1);
 
-    CUDA_CHECK(cudaMemcpy(devX0.get(),  Xaxis0, grid.nx0 * sizeof(T), cudaMemcpyHostToDevice));
-    CUDA_CHECK(cudaMemcpy(devX1.get(),  Xaxis1, grid.nx1 * sizeof(T), cudaMemcpyHostToDevice));
-    CUDA_CHECK(cudaMemcpy(devY0.get(),  Yaxis0, grid.ny0 * sizeof(T), cudaMemcpyHostToDevice));
-    CUDA_CHECK(cudaMemcpy(devY1.get(),  Yaxis1, grid.ny1 * sizeof(T), cudaMemcpyHostToDevice));
-    CUDA_CHECK(cudaMemcpy(devPhi.get(), Phi,    grid.nx0 * grid.nx1 * sizeof(T), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpyAsync(devX0.get(),  Xaxis0, grid.nx0 * sizeof(T), cudaMemcpyHostToDevice, s.get()));
+    CUDA_CHECK(cudaMemcpyAsync(devX1.get(),  Xaxis1, grid.nx1 * sizeof(T), cudaMemcpyHostToDevice, s.get()));
+    CUDA_CHECK(cudaMemcpyAsync(devY0.get(),  Yaxis0, grid.ny0 * sizeof(T), cudaMemcpyHostToDevice, s.get()));
+    CUDA_CHECK(cudaMemcpyAsync(devY1.get(),  Yaxis1, grid.ny1 * sizeof(T), cudaMemcpyHostToDevice, s.get()));
+    CUDA_CHECK(cudaMemcpyAsync(devPhi.get(), Phi,    grid.nx0 * grid.nx1 * sizeof(T), cudaMemcpyHostToDevice, s.get()));
 
     quadraticCTransform2DSeparable_launch<T>(
         devX0.get(), devX1.get(),
         devY0.get(), devY1.get(),
         devPhi.get(), devOut.get(), devG.get(),
-        grid, /*stream=*/0
+        grid, /*stream=*/s.get()
         );
 
-    CUDA_CHECK(cudaDeviceSynchronize());
-
-    CUDA_CHECK(cudaMemcpy(out, devOut.get(), grid.ny0 * grid.ny1 * sizeof(T), cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpyAsync(out, devOut.get(), grid.ny0 * grid.ny1 * sizeof(T), cudaMemcpyDeviceToHost, s.get()));
+    CUDA_CHECK(cudaStreamSynchronize(s.get()));
 }
 
 template void quadraticCTransform2DSeparable(const double*, const double*, const double*, const double*, const double*, double*, Grid2D);
