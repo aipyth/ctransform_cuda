@@ -36,6 +36,7 @@ private:
     std::size_t count_ = 0;
 };
 
+
 class CudaStream {
 public:
   CudaStream() {
@@ -51,4 +52,20 @@ public:
 
 private:
   cudaStream_t s_ = nullptr;
+};
+
+
+class CudaEvent {
+public:
+  CudaEvent() { CUDA_CHECK(cudaEventCreate(&e_)); }
+
+  CudaEvent(const CudaEvent&) = delete;
+  CudaEvent& operator=(const CudaEvent&) = delete;
+
+  ~CudaEvent() { if (e_) cudaEventDestroy(e_); }
+
+  cudaEvent_t get() const { return e_; }
+
+private:
+  cudaEvent_t e_ = nullptr;
 };

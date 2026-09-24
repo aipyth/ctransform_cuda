@@ -67,7 +67,7 @@ target_link_libraries(ctransform_tests
 add_test(NAME ctransform_tests COMMAND ctransform_tests)
 
 # performance tests
-add_executable(ctransform_perf tests/test_perf.cpp)
+add_executable(ctransform_perf tests/test_perf.cu)
 target_link_libraries(ctransform_perf PRIVATE ctransform_lib)
 
 endif()
