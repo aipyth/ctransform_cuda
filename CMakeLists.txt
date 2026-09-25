@@ -6,6 +6,7 @@ add_library(ctransform_lib STATIC
   src/ctransform1D_naive.cu
   src/ctransform2D_naive.cu
   src/ctransform2D_separable.cu
+  src/ctransform3D_naive.cu
   src/cpu_reference.cpp
   )
 
@@ -53,6 +54,7 @@ include(CTest)
 add_executable(ctransform_tests
     tests/test_ctransform_1d.cpp
     tests/test_cpu_reference.cpp
+    tests/test_ctransform_3d.cpp
     tests/test_cuda_vs_cpu.cpp
     tests/test_randomized.cpp
     tests/test_stress.cpp

@@ -3,7 +3,9 @@
 #include <random>
 #include <cmath>
 #include <algorithm>
+
 #include "ctransform.hpp"
+#include "helpers_3d.hpp"
 
 namespace {
 
@@ -80,6 +82,29 @@ TEST(Randomized2D, GpuMatchesCpu) {
             EXPECT_LT(maxAbsErr(cpu, naive), 1e-12) << "seed=" << seed;
             EXPECT_LT(maxAbsErr(cpu, sep),   1e-12) << "seed=" << seed;
             (void)ctx;
+        }
+    }
+}
+
+TEST(Randomized3D, NaiveMatchesCpu) {
+    for (unsigned seed = 0; seed < 10; ++seed) {
+        std::mt19937_64 rng(seed);
+        std::uniform_int_distribution<std::size_t> axisSize(1, 20);
+        for (int shape = 0; shape < 20; ++shape) {
+            std::size_t n[6];
+            for (std::size_t& k : n) k = axisSize(rng);
+            const t3d::Axes3<double> X = t3d::randomAxes(n[0], n[1], n[2], rng);
+            const t3d::Axes3<double> Y = t3d::randomAxes(n[3], n[4], n[5], rng);
+            const std::vector<double> phi = t3d::uniform(X.size(), rng, -1.0, 1.0);
+
+            const std::vector<double> cpu = t3d::run(&quadraticCTransformCPU3D<double>, X, Y, phi);
+            const std::vector<double> gpu = t3d::run(&quadraticCTransform3D<double>, X, Y, phi);
+
+            const auto where = ::testing::Message()
+                << "seed=" << seed << " nx=(" << n[0] << "," << n[1] << "," << n[2]
+                << ") ny=(" << n[3] << "," << n[4] << "," << n[5] << ")";
+            ASSERT_TRUE(allFinite(gpu)) << where;
+            EXPECT_LT(t3d::maxAbsErr(cpu, gpu), 1e-12) << where;
         }
     }
 }

@@ -12,6 +12,7 @@
             + " " + cudaGetErrorString(_e)); \
     } while(0)
 
+constexpr std::size_t kMaxGridDimX = 2147483647;    // CUDA gridDim.x limit
 
 template <typename T>
 class DeviceBuffer {

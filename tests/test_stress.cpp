@@ -2,7 +2,9 @@
 #include <vector>
 #include <cmath>
 #include <algorithm>
+
 #include "ctransform.hpp"
+#include "helpers_3d.hpp"
 
 namespace {
 
@@ -79,4 +81,35 @@ TEST(Stress2D, LargeFinite) {
     quadraticCTransform2DSeparable(X0.data(), X1.data(), Y0.data(), Y1.data(), phi.data(), sep.data(),   grid);
     EXPECT_TRUE(allFinite(naive));
     EXPECT_TRUE(allFinite(sep));
+}
+
+// Tier 4: 3D medium, 24^3 -> 24^3 (1.9e8 source-target pairs) — naive vs CPU
+TEST(Stress3D, MediumMatchesCpu) {
+    const std::size_t n = 24;
+    t3d::Axes3<double> X{std::vector<double>(n), std::vector<double>(n), std::vector<double>(n)};
+    t3d::Axes3<double> Y = X;
+    for (auto* axis : {&X.a0, &X.a1, &X.a2, &Y.a0, &Y.a1, &Y.a2}) ramp(*axis);
+    std::vector<double> phi(X.size());
+    for (std::size_t k = 0; k < phi.size(); ++k) phi[k] = 0.1 * std::sin(0.7 * static_cast<double>(k));
+
+    const std::vector<double> cpu = t3d::run(&quadraticCTransformCPU3D<double>, X, Y, phi);
+    const std::vector<double> gpu = t3d::run(&quadraticCTransform3D<double>, X, Y, phi);
+    ASSERT_TRUE(allFinite(gpu));
+    EXPECT_LT(t3d::maxAbsErr(cpu, gpu), 1e-12);
+}
+
+// Tier 4: 3D large, 48^3 -> 48^3 (1.2e10 pairs) — GPU only, too slow for the CPU reference.
+// Checked with invariants instead: finiteness, and phi = 0 on a grid where every target
+// point is also a source point, so the exact answer is 0 everywhere (each y is at
+// distance 0 from itself, and all other candidates are positive).
+TEST(Stress3D, LargeSelfTransformIsZero) {
+    const std::size_t n = 48;
+    t3d::Axes3<double> X{std::vector<double>(n), std::vector<double>(n), std::vector<double>(n)};
+    for (auto* axis : {&X.a0, &X.a1, &X.a2}) ramp(*axis);
+    const std::vector<double> phi(X.size(), 0.0);
+
+    const std::vector<double> gpu = t3d::run(&quadraticCTransform3D<double>, X, X, phi);
+    ASSERT_TRUE(allFinite(gpu));
+    for (std::size_t i = 0; i < gpu.size(); ++i)
+        ASSERT_EQ(gpu[i], 0.0) << "output " << i;
 }
