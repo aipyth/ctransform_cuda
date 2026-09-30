@@ -113,3 +113,26 @@ TEST(Stress3D, LargeSelfTransformIsZero) {
     for (std::size_t i = 0; i < gpu.size(); ++i)
         ASSERT_EQ(gpu[i], 0.0) << "output " << i;
 }
+
+// Tier 4: 3D separable, 128^3 -> 128^3. Far too large for the CPU or the naive kernel,
+// so it is checked with two exact properties instead.
+TEST(Stress3D, SeparableLarge) {
+    const std::size_t n = 128;
+    t3d::Axes3<double> X{std::vector<double>(n), std::vector<double>(n), std::vector<double>(n)};
+    for (auto* axis : {&X.a0, &X.a1, &X.a2}) ramp(*axis);
+    const auto sep = &quadraticCTransform3DSeparable<double>;
+
+    // 1. phi = 0 and Y = X: every target point is also a source point, so the answer is
+    //    exactly 0 everywhere.
+    const std::vector<double> zero = t3d::run(sep, X, X, std::vector<double>(X.size(), 0.0));
+    for (std::size_t i = 0; i < zero.size(); ++i)
+        ASSERT_EQ(zero[i], 0.0) << "output " << i;
+
+    // 2. Transforming three times gives the same result as transforming once.
+    std::vector<double> phi(X.size());
+    for (std::size_t k = 0; k < phi.size(); ++k) phi[k] = 0.1 * std::sin(0.7 * static_cast<double>(k));
+    const std::vector<double> c1 = t3d::run(sep, X, X, phi);
+    const std::vector<double> c3 = t3d::run(sep, X, X, t3d::run(sep, X, X, c1));
+    ASSERT_TRUE(allFinite(c1));
+    EXPECT_LT(t3d::maxAbsErr(c1, c3), 1e-12);
+}

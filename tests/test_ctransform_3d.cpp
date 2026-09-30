@@ -279,12 +279,21 @@ TEST_P(Quadratic3D, AxisPermutation) {
 // ---- Empty axes (docs/engineering/api.md, "Empty-axis semantics (3D)") ----
 
 TEST_P(Quadratic3D, EmptySourceAxis) {
-    // nx1 = 0: min over an empty set -> every output entry is +inf; phi is never read.
-    const Axes3<double> X{{0.0, 1.0}, {}, {0.5}};
+    // Any source axis of size 0: min over an empty set -> every output entry is +inf.
+    // Each axis is emptied in turn, because each one empties a different separable pass.
     const Axes3<double> Y{{0.0}, {0.25, 0.75}, {1.0}};
-    const Vec out = run(X, Y, Vec{});
-    ASSERT_EQ(out.size(), 2u);
-    for (double v : out) EXPECT_TRUE(std::isinf(v) && v > 0) << v;
+    const Vec some{0.0, 1.0};
+    const Axes3<double> sources[] = {
+        {{}, some, some},   // nx0 = 0
+        {some, {}, some},   // nx1 = 0
+        {some, some, {}},   // nx2 = 0
+    };
+    for (std::size_t pos = 0; pos < 3; ++pos) {
+        const Vec out = run(sources[pos], Y, Vec{});
+        ASSERT_EQ(out.size(), 2u);
+        for (double v : out)
+            EXPECT_TRUE(std::isinf(v) && v > 0) << "empty source axis " << pos << ": " << v;
+    }
 }
 
 TEST_P(Quadratic3D, EmptyTargetAxis) {
@@ -312,39 +321,45 @@ INSTANTIATE_TEST_SUITE_P(CPU, Quadratic3D,
 // Next stage, once implemented:
 // INSTANTIATE_TEST_SUITE_P(Naive, Quadratic3D,
 //                          ::testing::Values(&quadraticCTransform3D<double>));
+//
 
-// ---- Naive GPU kernel vs CPU reference ----
-// The Quadratic3D suite above already runs every closed-form test on the naive kernel.
-// These tests add what that suite cannot: grids large or oddly shaped enough to exercise the
-// launch configuration (partial blocks, very long axes, more than 65535 blocks).
+// ---- GPU kernels vs CPU reference ----
+// The Quadratic3D suite runs every closed-form test on each kernel. These tests add grids
+// large or oddly shaped enough to exercise the launch configuration.
 
 namespace {
 
-// Runs the CPU reference and the naive GPU kernel on the same inputs and returns the largest
-// absolute difference between the two outputs.
-double naiveVsCpu(const Axes3<double>& X, const Axes3<double>& Y, const Vec& phi) {
-    const Vec cpu = t3d::run(&quadraticCTransformCPU3D<double>, X, Y, phi);
-    const Vec gpu = t3d::run(&quadraticCTransform3D<double>, X, Y, phi);
-    return maxAbsErr(cpu, gpu);
+struct Kernel3D {
+    const char* name;
+    CTransform3DFn<double> fn;
+};
+
+const Kernel3D kGpuKernels[] = {
+    {"naive", &quadraticCTransform3D<double>},
+    {"separable", &quadraticCTransform3DSeparable<double>},
+};
+
+// Largest absolute difference between the CPU reference and kernel f on the same inputs.
+double vsCpu(CTransform3DFn<double> f, const Axes3<double>& X, const Axes3<double>& Y,
+             const Vec& phi) {
+    return maxAbsErr(t3d::run(&quadraticCTransformCPU3D<double>, X, Y, phi),
+                     t3d::run(f, X, Y, phi));
 }
 
 }  // namespace
 
-TEST(NaiveVsCPU3D, OddSizesMultiBlock) {
-    // 11 * 13 * 37 = 5291 outputs = 20 full blocks of 256 threads plus one partial block of 171.
-    // No axis size is a multiple of 8 or 32, so any rounding mistake in the block count or a
-    // missing "t < N" bounds check shows up here.
+TEST(GpuVsCPU3D, OddSizesMultiBlock) {
+    // 11 * 13 * 37 = 5291 outputs: 20 full blocks of 256 plus a partial one.
     std::mt19937_64 rng(23);
     const Axes3<double> X = randomAxes(5, 7, 9, rng);
     const Axes3<double> Y = randomAxes(11, 13, 37, rng);
     const Vec phi = uniform(X.size(), rng, -1.0, 1.0);
-    EXPECT_LT(naiveVsCpu(X, Y, phi), 1e-12);
+    for (const Kernel3D& k : kGpuKernels)
+        EXPECT_LT(vsCpu(k.fn, X, Y, phi), 1e-12) << k.name;
 }
 
-TEST(NaiveVsCPU3D, LongAxisInEachPosition) {
-    // One target axis with 70000 points, the other two with 1. A launch that puts an output
-    // axis on gridDim.y or gridDim.z (maximum 65535 blocks each) fails to launch for at least
-    // one of the three positions; a flattened launch over gridDim.x handles all three.
+TEST(GpuVsCPU3D, LongAxisInEachPosition) {
+    // One target axis of 70000 points: more than gridDim.y / gridDim.z allow (65535).
     std::mt19937_64 rng(29);
     const Axes3<double> X = randomAxes(2, 3, 2, rng);
     const Vec phi = uniform(X.size(), rng, -1.0, 1.0);
@@ -352,22 +367,45 @@ TEST(NaiveVsCPU3D, LongAxisInEachPosition) {
     const Vec one = {0.5};
 
     const Axes3<double> targets[] = {
-        {longAxis, one, one},   // ny = (70000, 1, 1)
-        {one, longAxis, one},   // ny = (1, 70000, 1)
-        {one, one, longAxis},   // ny = (1, 1, 70000)
+        {longAxis, one, one},
+        {one, longAxis, one},
+        {one, one, longAxis},
     };
-    for (std::size_t pos = 0; pos < 3; ++pos)
-        EXPECT_LT(naiveVsCpu(X, targets[pos], phi), 1e-12) << "long target axis " << pos;
+    for (const Kernel3D& k : kGpuKernels)
+        for (std::size_t pos = 0; pos < 3; ++pos)
+            EXPECT_LT(vsCpu(k.fn, X, targets[pos], phi), 1e-12) << k.name << ", long axis " << pos;
 }
 
-TEST(NaiveVsCPU3D, MoreThan65535Blocks) {
-    // 260^3 = 17,576,000 outputs need 68,657 blocks of 256 threads, more than the 65535 that
-    // gridDim.y or gridDim.z allow. A single source point keeps the CPU side cheap.
+TEST(GpuVsCPU3D, MoreThan65535Blocks) {
+    // 260^3 outputs need 68,657 blocks of 256 threads.
     std::mt19937_64 rng(31);
     const Axes3<double> X = randomAxes(1, 1, 1, rng);
     const Axes3<double> Y = randomAxes(260, 260, 260, rng);
     const Vec phi = {0.3};
-    EXPECT_LT(naiveVsCpu(X, Y, phi), 1e-12);
+    for (const Kernel3D& k : kGpuKernels)
+        EXPECT_LT(vsCpu(k.fn, X, Y, phi), 1e-12) << k.name;
+}
+
+TEST(GpuVsCPU3D, LargeSourceBatch) {
+    // Separable pass 1 solves one 1D problem per (ix0, ix1) pair: 300 * 300 = 90,000 of them,
+    // again more than gridDim.y / gridDim.z allow.
+    std::mt19937_64 rng(47);
+    const Axes3<double> X = randomAxes(300, 300, 2, rng);
+    const Axes3<double> Y = randomAxes(2, 2, 3, rng);
+    const Vec phi = uniform(X.size(), rng, -1.0, 1.0);
+    for (const Kernel3D& k : kGpuKernels)
+        EXPECT_LT(vsCpu(k.fn, X, Y, phi), 1e-12) << k.name;
+}
+
+TEST(SeparableVsNaive3D, MediumGrid) {
+    // Too large for the CPU reference to be quick; the naive kernel is the reference here.
+    // All six sizes differ, so the two scratch arrays and the output all have different sizes.
+    std::mt19937_64 rng(53);
+    const Axes3<double> X = randomAxes(40, 36, 44, rng);
+    const Axes3<double> Y = randomAxes(32, 42, 38, rng);
+    const Vec phi = uniform(X.size(), rng, -1.0, 1.0);
+    EXPECT_LT(maxAbsErr(t3d::run(&quadraticCTransform3D<double>, X, Y, phi),
+                        t3d::run(&quadraticCTransform3DSeparable<double>, X, Y, phi)), 1e-12);
 }
 
 // ---- Float ----
@@ -379,11 +417,9 @@ TEST(Quadratic3DFloat, SpikeLayoutProbeNaive) {
     checkSpike<float>(&quadraticCTransform3D<float>, 0, 0, 3);
 }
 
-TEST(Quadratic3DFloat, NaiveRandomVsDoubleCpu) {
-    // Float kernel on float-rounded inputs vs the double CPU reference on the same (rounded)
-    // values. Outputs here are at most a few units in size, and float carries about 7 digits,
-    // so 1e-5 leaves a wide margin while still catching a real bug.
-    std::mt19937_64 rng(37);
+TEST(Quadratic3DFloat, SeparableRandomVsDoubleCpu) {
+    // Same check as NaiveRandomVsDoubleCpu, for the separable kernel.
+    std::mt19937_64 rng(59);
     const Axes3<double> Xd = randomAxes(6, 5, 7, rng);
     const Axes3<double> Yd = randomAxes(9, 4, 8, rng);
     const Vec phid = uniform(Xd.size(), rng, -1.0, 1.0);
@@ -394,15 +430,16 @@ TEST(Quadratic3DFloat, NaiveRandomVsDoubleCpu) {
     const Axes3<float> Yf{toFloat(Yd.a0), toFloat(Yd.a1), toFloat(Yd.a2)};
     const std::vector<float> phif = toFloat(phid);
 
-    // Double reference computed from the float-rounded inputs, so only the kernel's own
-    // float arithmetic is being measured.
     const Axes3<double> Xr{toDouble(Xf.a0), toDouble(Xf.a1), toDouble(Xf.a2)};
     const Axes3<double> Yr{toDouble(Yf.a0), toDouble(Yf.a1), toDouble(Yf.a2)};
     const Vec ref = t3d::run(&quadraticCTransformCPU3D<double>, Xr, Yr, toDouble(phif));
 
-    const Vec gpu = toDouble(t3d::run(&quadraticCTransform3D<float>, Xf, Yf, phif));
+    const Vec gpu = toDouble(t3d::run(&quadraticCTransform3DSeparable<float>, Xf, Yf, phif));
     EXPECT_LT(maxAbsErr(gpu, ref), 1e-5);
 }
+
+INSTANTIATE_TEST_SUITE_P(Separable, Quadratic3D,
+                         ::testing::Values(&quadraticCTransform3DSeparable<double>));
 
 INSTANTIATE_TEST_SUITE_P(Naive, Quadratic3D,
                          ::testing::Values(&quadraticCTransform3D<double>));

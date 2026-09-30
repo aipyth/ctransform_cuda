@@ -99,6 +99,7 @@ void quadraticCTransformCPU3D(
   T* out,           // shape (ny0, ny1, ny2)
   Grid3D grid
   );
+
 template <typename T>
 void quadraticCTransform3D(
   const T* Xaxis0,
@@ -111,6 +112,7 @@ void quadraticCTransform3D(
   T* Out,
   Grid3D grid
   );
+
 template <typename T>
 void quadraticCTransform3D_launch(
   const T* dXaxis0,         // DEVICE pointers
@@ -124,3 +126,19 @@ void quadraticCTransform3D_launch(
   Grid3D grid,
   cudaStream_t stream = 0
   );
+
+std::size_t quadraticCTransform3DSeparable_scratchSize(Grid3D grid);
+
+template <typename T>
+void quadraticCTransform3DSeparable(
+  const T* Xaxis0, const T* Xaxis1, const T* Xaxis2,
+  const T* Yaxis0, const T* Yaxis1, const T* Yaxis2,
+  const T* Phi, T* Out, Grid3D grid);
+
+template <typename T>
+void quadraticCTransform3DSeparable_launch(
+  const T* dXaxis0, const T* dXaxis1, const T* dXaxis2,
+  const T* dYaxis0, const T* dYaxis1, const T* dYaxis2,
+  const T* dPhi, T* dOut,
+  T* dScratch,                            // >= scratchSize(grid)
+  Grid3D grid, cudaStream_t stream = 0);

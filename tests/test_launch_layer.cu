@@ -241,3 +241,52 @@ TEST(LaunchDirect3D, EmptyTargetIsNoOp) {
     EXPECT_NO_THROW(d.launch(/*stream=*/0));
     CUDA_CHECK(cudaDeviceSynchronize());
 }
+
+// ---- 3D separable ----
+
+namespace {
+
+// Runs the separable launch layer on d, with a scratch buffer of exactly the advertised size.
+// Every byte of scratch is set to 0xFE first, which as a double is about -5e303 (and as a
+// float about -1.7e38): finite and hugely negative. A pass that reads a scratch entry
+// before writing it picks that value as its minimum, and the result is wildly wrong.
+// (NaN would not work here: CUDA's min() ignores a NaN argument.)
+void launchSeparable(Device3D& d, cudaStream_t stream) {
+    const std::size_t n = quadraticCTransform3DSeparable_scratchSize(d.grid);
+    DeviceBuffer<double> scratch(n);
+    CUDA_CHECK(cudaMemset(scratch.get(), 0xFE, n * sizeof(double)));
+    quadraticCTransform3DSeparable_launch<double>(d.x0.get(), d.x1.get(), d.x2.get(),
+                                                  d.y0.get(), d.y1.get(), d.y2.get(),
+                                                  d.phi.get(), d.out.get(), scratch.get(),
+                                                  d.grid, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+}
+
+}  // namespace
+
+TEST(LaunchDirect3D, SeparablePoisonedOutputAndScratch) {
+    std::mt19937_64 rng(61);
+    const t3d::Axes3<double> X = t3d::randomAxes(5, 7, 9, rng);
+    const t3d::Axes3<double> Y = t3d::randomAxes(11, 13, 37, rng);
+    const std::vector<double> phi = t3d::uniform(X.size(), rng, -1.0, 1.0);
+    const std::vector<double> cpu = t3d::run(&quadraticCTransformCPU3D<double>, X, Y, phi);
+
+    Device3D d(X, Y, phi);
+    d.poisonOutput();
+    CudaStream stream;
+    launchSeparable(d, stream.get());
+    const std::vector<double> gpu = d.download();
+
+    for (std::size_t i = 0; i < gpu.size(); ++i)
+        ASSERT_FALSE(std::isnan(gpu[i])) << "output " << i << " was never written";
+    EXPECT_LT(t3d::maxAbsErr(cpu, gpu), 1e-12);
+}
+
+TEST(LaunchDirect3D, SeparableEmptyTargetIsNoOp) {
+    const t3d::Axes3<double> X{{0.0, 1.0}, {0.5}, {0.5}};
+    const t3d::Axes3<double> Y{{0.0}, {}, {1.0}};
+    const std::vector<double> phi(X.size(), 0.0);
+
+    Device3D d(X, Y, phi);
+    EXPECT_NO_THROW(launchSeparable(d, /*stream=*/0));
+}

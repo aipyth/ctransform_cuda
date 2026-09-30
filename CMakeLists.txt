@@ -2,11 +2,15 @@ cmake_minimum_required(VERSION 3.26)
 
 project(ctransform LANGUAGES CXX CUDA)
 
+# let clangd see CUDA include paths in compile_commands.json (no nvcc --options-file)
+set(CMAKE_CUDA_USE_RESPONSE_FILE_FOR_INCLUDES OFF)
+
 add_library(ctransform_lib STATIC
   src/ctransform1D_naive.cu
   src/ctransform2D_naive.cu
   src/ctransform2D_separable.cu
   src/ctransform3D_naive.cu
+  src/ctransform3D_separable.cu
   src/cpu_reference.cpp
   )
 

@@ -86,7 +86,7 @@ TEST(Randomized2D, GpuMatchesCpu) {
     }
 }
 
-TEST(Randomized3D, NaiveMatchesCpu) {
+TEST(Randomized3D, GpuMatchesCpu) {
     for (unsigned seed = 0; seed < 10; ++seed) {
         std::mt19937_64 rng(seed);
         std::uniform_int_distribution<std::size_t> axisSize(1, 20);
@@ -99,12 +99,14 @@ TEST(Randomized3D, NaiveMatchesCpu) {
 
             const std::vector<double> cpu = t3d::run(&quadraticCTransformCPU3D<double>, X, Y, phi);
             const std::vector<double> gpu = t3d::run(&quadraticCTransform3D<double>, X, Y, phi);
+            const std::vector<double> sep = t3d::run(&quadraticCTransform3DSeparable<double>, X, Y, phi);
 
             const auto where = ::testing::Message()
                 << "seed=" << seed << " nx=(" << n[0] << "," << n[1] << "," << n[2]
                 << ") ny=(" << n[3] << "," << n[4] << "," << n[5] << ")";
             ASSERT_TRUE(allFinite(gpu)) << where;
             EXPECT_LT(t3d::maxAbsErr(cpu, gpu), 1e-12) << where;
+            EXPECT_LT(t3d::maxAbsErr(cpu, sep), 1e-12) << where << " (separable)";
         }
     }
 }
